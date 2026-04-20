@@ -1,0 +1,105 @@
+{
+  "dataset_id": "dataset_support_faq_v1",
+  "name": "Support FAQ Eval Set",
+  "description": "Deterministic fixture for the tool-using QA agent demo path.",
+  "schema_version": "1.0",
+  "source_type": "fixture",
+  "items": [
+    {
+      "dataset_item_id": "ds_item_001",
+      "input_text": "What is the refund policy for annual plans?",
+      "category": "refund_policy",
+      "difficulty": "easy",
+      "expected_output": "Annual plans can be refunded within 30 days.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_002",
+      "input_text": "Can I change the billing email after checkout?",
+      "category": "billing_update",
+      "difficulty": "easy",
+      "expected_output": "Yes, billing email can be updated in account settings.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_003",
+      "input_text": "How long does password reset access stay valid?",
+      "category": "account_access",
+      "difficulty": "easy",
+      "expected_output": "Password reset links stay valid for 15 minutes.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_004",
+      "input_text": "Can finance teams get invoices in PDF format?",
+      "category": "billing_documents",
+      "difficulty": "easy",
+      "expected_output": "Invoices are available as PDFs in the billing portal.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_005",
+      "input_text": "Is calculator use allowed for tax-inclusive total questions?",
+      "category": "tool_usage",
+      "difficulty": "medium",
+      "expected_output": "Yes, calculator may be used for total-cost questions.",
+      "metadata_json": { "tool_expectation": "calculator" }
+    },
+    {
+      "dataset_item_id": "ds_item_006",
+      "input_text": "Where can enterprise users find the data retention policy?",
+      "category": "policy_lookup",
+      "difficulty": "medium",
+      "expected_output": "Enterprise users can find it in the policy center knowledge base.",
+      "metadata_json": { "tool_expectation": "document_lookup" }
+    },
+    {
+      "dataset_item_id": "ds_item_007",
+      "input_text": "What support hours apply during regional holidays?",
+      "category": "support_hours",
+      "difficulty": "medium",
+      "expected_output": "Holiday support hours follow the published regional support calendar.",
+      "metadata_json": { "locale": "en-AU" }
+    },
+    {
+      "dataset_item_id": "ds_item_008",
+      "input_text": "Can users downgrade from annual to monthly mid-cycle?",
+      "category": "plan_change",
+      "difficulty": "medium",
+      "expected_output": "Downgrades take effect at the next renewal date.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_009",
+      "input_text": "How many failed login attempts trigger temporary lockout?",
+      "category": "account_security",
+      "difficulty": "easy",
+      "expected_output": "Temporary lockout happens after 5 failed login attempts.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_010",
+      "input_text": "Does the policy mention refunds for add-on seats?",
+      "category": "refund_policy",
+      "difficulty": "medium",
+      "expected_output": "Add-on seats are non-refundable after activation.",
+      "metadata_json": { "tool_expectation": "document_lookup" }
+    },
+    {
+      "dataset_item_id": "ds_item_011",
+      "input_text": "Can admins export audit logs from the self-serve dashboard?",
+      "category": "admin_features",
+      "difficulty": "medium",
+      "expected_output": "Audit log export is available for enterprise admins only.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_012",
+      "input_text": "What is the total for three 12-dollar add-ons and one 8-dollar fee?",
+      "category": "calculator_total",
+      "difficulty": "medium",
+      "expected_output": "The total is 44 dollars.",
+      "metadata_json": { "tool_expectation": "calculator" }
+    }
+  ]
+}

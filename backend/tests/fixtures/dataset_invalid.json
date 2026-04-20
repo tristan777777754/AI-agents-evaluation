@@ -1,0 +1,15 @@
+{
+  "dataset_id": "dataset_support_faq_invalid",
+  "name": "Invalid Support FAQ Eval Set",
+  "source_type": "fixture",
+  "items": [
+    {
+      "dataset_item_id": "ds_item_bad_001",
+      "category": "missing_input_text"
+    },
+    {
+      "dataset_item_id": "ds_item_bad_002",
+      "input_text": "This record is missing category."
+    }
+  ]
+}

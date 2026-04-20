@@ -122,11 +122,17 @@ At a system level, the workbench is expected to include:
 
 ## Current Status
 
-This repository is currently documentation-first.
+Phase 1 is now scaffolded.
 
-The project is still in the planning and scaffold stage, with the goal of implementing the system phase by phase rather than generating the full product in one pass.
+The repository includes:
 
-The implementation path is intentionally structured around six phases:
+- `frontend/`: Next.js + React + TypeScript skeleton
+- `backend/`: FastAPI skeleton and canonical Phase 1 schemas
+- `shared/`: shared TypeScript contract mirrors aligned to backend schemas
+- `docs/tasks/` and `docs/reports/`: harness artifacts for scoped phase work
+- `scripts/smoke.sh`: minimum smoke entrypoint
+
+The implementation path remains intentionally structured around six phases:
 
 1. Project skeleton and contracts
 2. Dataset management
@@ -134,6 +140,90 @@ The implementation path is intentionally structured around six phases:
 4. Trace and case detail
 5. Summary dashboard
 6. Run comparison and product polish
+
+## Phase 1 Deliverables
+
+Phase 1 only covers structure and contracts. It intentionally does not implement dataset upload, run execution, trace viewing, dashboard aggregation, or compare workflows.
+
+Delivered in this phase:
+
+- required top-level repository skeleton
+- canonical backend contract definitions in `backend/app/schemas/contracts.py`
+- shared TypeScript contract mirror in `shared/types/contracts.ts`
+- minimum frontend homepage and frontend health route
+- minimum backend root route plus `/api/v1/meta/health` and `/api/v1/meta/contracts`
+- `.env.example`, `docker-compose.yml`, fixture placeholders, and acceptance artifacts
+
+## Local Setup
+
+### Backend
+
+1. Create a virtual environment if you want isolation.
+2. Install backend dependencies:
+
+```bash
+python3 -m pip install -e "backend[dev]"
+```
+
+3. Start the API:
+
+```bash
+PYTHONPATH=backend uvicorn app.main:app --reload --port 8000
+```
+
+### Frontend
+
+1. Install frontend dependencies:
+
+```bash
+cd frontend && npm install
+```
+
+2. Start the Next.js app:
+
+```bash
+cd frontend && npm run dev
+```
+
+By default the frontend expects the backend at `http://localhost:8000`. Override with `NEXT_PUBLIC_BACKEND_BASE_URL` if needed.
+
+### Local Infrastructure
+
+Start the local infrastructure stack with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+This starts:
+
+- PostgreSQL on `5432`
+- Redis on `6379`
+- MinIO on `9000` with console on `9001`
+
+## Validation Commands
+
+Backend:
+
+```bash
+ruff check backend/
+mypy backend/app
+pytest backend/tests/
+```
+
+Frontend:
+
+```bash
+cd frontend && npm run lint
+cd frontend && npm run typecheck
+cd frontend && npm run test
+```
+
+Smoke:
+
+```bash
+./scripts/smoke.sh phase1
+```
 
 ## Repository Guide
 

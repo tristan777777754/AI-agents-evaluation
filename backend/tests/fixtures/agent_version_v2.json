@@ -1,0 +1,12 @@
+{
+  "agent_version_id": "av_support_qa_v2",
+  "agent_id": "agent_support_qa",
+  "version_name": "v2",
+  "model": "codex-latest",
+  "prompt_hash": "sha256:v2-demo-hash",
+  "config_json": {
+    "adapter_type": "stub",
+    "tool_allowlist": ["document_lookup", "calculator"],
+    "timeout_seconds": 90
+  }
+}
