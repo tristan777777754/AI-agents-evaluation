@@ -6,6 +6,11 @@
 
 本專案的核心目標是把「主觀 demo 判斷」轉成「可重複、可比較、可追蹤」的工程流程。
 
+## Repository
+
+- GitHub: `https://github.com/tristan777777754/AI-agents-evaluation`
+- Default branch: `main`
+
 ## Current Scope
 
 目前只做 MVP 到可展示版本，範圍嚴格限制為：
