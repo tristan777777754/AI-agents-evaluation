@@ -182,67 +182,110 @@ with TestClient(app) as client:
     )
     openai_api_key = os.environ.get("OPENAI_API_KEY", "")
     if not run_openai_integration:
-        print("Backend smoke checks passed. OpenAI integration smoke skipped.")
-        raise SystemExit(0)
+        if os.environ["PHASE"] == "phase7":
+            print("Backend smoke checks passed. OpenAI integration smoke skipped.")
+            raise SystemExit(0)
+    else:
+        assert openai_api_key, "OPENAI_API_KEY is required when RUN_OPENAI_INTEGRATION_SMOKE=1."
+        assert "sc_keyword_overlap_v1" in scorer_by_id, scorer_by_id
 
-    assert openai_api_key, "OPENAI_API_KEY is required when RUN_OPENAI_INTEGRATION_SMOKE=1."
-    assert "sc_keyword_overlap_v1" in scorer_by_id, scorer_by_id
+        openai_v1 = client.post(
+            "/api/v1/runs",
+            json={
+                "dataset_id": dataset_id,
+                "agent_version_id": "av_support_qa_v1",
+                "scorer_config_id": "sc_keyword_overlap_v1",
+                "adapter_type": "openai",
+                "adapter_config": {},
+            },
+        )
+        assert openai_v1.status_code == 201, openai_v1.text
+        openai_v1_body = openai_v1.json()
+        assert openai_v1_body["adapter_type"] == "openai", openai_v1_body
+        assert openai_v1_body["status"] in {"completed", "partial_success"}, openai_v1_body
 
-    openai_v1 = client.post(
-        "/api/v1/runs",
-        json={
-            "dataset_id": dataset_id,
-            "agent_version_id": "av_support_qa_v1",
-            "scorer_config_id": "sc_keyword_overlap_v1",
-            "adapter_type": "openai",
-            "adapter_config": {},
-        },
-    )
-    assert openai_v1.status_code == 201, openai_v1.text
-    openai_v1_body = openai_v1.json()
-    assert openai_v1_body["adapter_type"] == "openai", openai_v1_body
-    assert openai_v1_body["status"] in {"completed", "partial_success"}, openai_v1_body
+        openai_v2 = client.post(
+            "/api/v1/runs",
+            json={
+                "dataset_id": dataset_id,
+                "agent_version_id": "av_support_qa_v2",
+                "scorer_config_id": "sc_keyword_overlap_v1",
+                "adapter_type": "openai",
+                "adapter_config": {},
+            },
+        )
+        assert openai_v2.status_code == 201, openai_v2.text
+        openai_v2_body = openai_v2.json()
+        assert openai_v2_body["adapter_type"] == "openai", openai_v2_body
+        assert openai_v2_body["status"] in {"completed", "partial_success"}, openai_v2_body
 
-    openai_v2 = client.post(
-        "/api/v1/runs",
-        json={
-            "dataset_id": dataset_id,
-            "agent_version_id": "av_support_qa_v2",
-            "scorer_config_id": "sc_keyword_overlap_v1",
-            "adapter_type": "openai",
-            "adapter_config": {},
-        },
-    )
-    assert openai_v2.status_code == 201, openai_v2.text
-    openai_v2_body = openai_v2.json()
-    assert openai_v2_body["adapter_type"] == "openai", openai_v2_body
-    assert openai_v2_body["status"] in {"completed", "partial_success"}, openai_v2_body
+        openai_compare = client.get(
+            "/api/v1/runs/compare",
+            params={
+                "baseline_run_id": openai_v1_body["run_id"],
+                "candidate_run_id": openai_v2_body["run_id"],
+            },
+        )
+        assert openai_compare.status_code == 200, openai_compare.text
+        compare_body = openai_compare.json()
 
-    openai_compare = client.get(
-        "/api/v1/runs/compare",
-        params={
-            "baseline_run_id": openai_v1_body["run_id"],
-            "candidate_run_id": openai_v2_body["run_id"],
-        },
-    )
-    assert openai_compare.status_code == 200, openai_compare.text
-    compare_body = openai_compare.json()
+        baseline_tasks = client.get(f"/api/v1/runs/{openai_v1_body['run_id']}/tasks")
+        candidate_tasks = client.get(f"/api/v1/runs/{openai_v2_body['run_id']}/tasks")
+        assert baseline_tasks.status_code == 200, baseline_tasks.text
+        assert candidate_tasks.status_code == 200, candidate_tasks.text
+        baseline_items = baseline_tasks.json()["items"]
+        candidate_items = candidate_tasks.json()["items"]
+        assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in baseline_items), baseline_items
+        assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in candidate_items), candidate_items
 
-    baseline_tasks = client.get(f"/api/v1/runs/{openai_v1_body['run_id']}/tasks")
-    candidate_tasks = client.get(f"/api/v1/runs/{openai_v2_body['run_id']}/tasks")
-    assert baseline_tasks.status_code == 200, baseline_tasks.text
-    assert candidate_tasks.status_code == 200, candidate_tasks.text
-    baseline_items = baseline_tasks.json()["items"]
-    candidate_items = candidate_tasks.json()["items"]
-    assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in baseline_items), baseline_items
-    assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in candidate_items), candidate_items
+        if compare_body["improvement_count"] == 0 and compare_body["regression_count"] == 0:
+            assert compare_body["compared_task_count"] == 20, compare_body
+            assert len(baseline_items) == 20, baseline_items
+            assert len(candidate_items) == 20, candidate_items
+            if os.environ["PHASE"] == "phase7":
+                print("Backend smoke checks passed. OpenAI compare result was inconclusive with persisted evidence.")
+                raise SystemExit(0)
 
-    if compare_body["improvement_count"] == 0 and compare_body["regression_count"] == 0:
-        assert compare_body["compared_task_count"] == 20, compare_body
-        assert len(baseline_items) == 20, baseline_items
-        assert len(candidate_items) == 20, candidate_items
-        print("Backend smoke checks passed. OpenAI compare result was inconclusive with persisted evidence.")
-        raise SystemExit(0)
+        if os.environ["PHASE"] == "phase7":
+            print("Backend smoke checks passed.")
+            raise SystemExit(0)
+
+    import json
+
+    with open("backend/tests/fixtures/replay_manifest.json", "r", encoding="utf-8") as handle:
+        replay_manifest = json.load(handle)
+
+    replay_runs = []
+    for _ in range(2):
+        replay_run = client.post(
+            "/api/v1/runs",
+            json={
+                "dataset_id": dataset_id,
+                "agent_version_id": replay_manifest["agent_version_id"],
+                "scorer_config_id": replay_manifest["scorer_config_id"],
+                "adapter_type": replay_manifest["adapter_type"],
+                "adapter_config": replay_manifest["adapter_config"],
+            },
+        )
+        assert replay_run.status_code == 201, replay_run.text
+        replay_runs.append(replay_run.json()["run_id"])
+
+    replay_summaries = []
+    for replay_run_id in replay_runs:
+        replay_summary = client.get(f"/api/v1/runs/{replay_run_id}/summary")
+        assert replay_summary.status_code == 200, replay_summary.text
+        replay_summaries.append(replay_summary.json())
+
+    expected = replay_manifest["expected_summary"]
+    assert replay_summaries[0]["success_rate"] == replay_summaries[1]["success_rate"] == expected["success_rate"], replay_summaries
+    assert replay_summaries[0]["average_latency_ms"] == replay_summaries[1]["average_latency_ms"] == expected["average_latency_ms"], replay_summaries
+    assert replay_summaries[0]["category_breakdown"] == replay_summaries[1]["category_breakdown"], replay_summaries
+    for expected_row in expected["category_breakdown"]:
+        actual_row = next(
+            row for row in replay_summaries[0]["category_breakdown"] if row["category"] == expected_row["category"]
+        )
+        assert actual_row["success_rate"] == expected_row["success_rate"], actual_row
+        assert actual_row["failed_tasks"] == expected_row["failed_tasks"], actual_row
 
 print("Backend smoke checks passed.")
 PY

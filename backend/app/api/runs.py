@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db import get_session
@@ -15,12 +15,22 @@ from app.schemas.runs import (
 )
 from app.schemas.summary import RunDashboardSummarySchema
 from app.services.compare import get_run_comparison
-from app.services.runs import create_run, get_run_detail, get_run_tasks, list_runs
+from app.services.runs import (
+    InvalidStateTransitionError,
+    create_run,
+    get_run_detail,
+    get_run_tasks,
+    list_runs,
+    repair_run_aggregation,
+    rerun_run,
+    update_run_status,
+)
 from app.services.summary import get_run_dashboard_summary
 from app.worker.tasks import execute_run_task
 
 router = APIRouter()
 RunSession = Annotated[Session, Depends(get_session)]
+StatusPayload = Annotated[dict[str, str], Body(...)]
 
 
 @router.post("", response_model=RunDetailSchema, status_code=status.HTTP_201_CREATED)
@@ -67,6 +77,43 @@ def get_run(run_id: str, session: RunSession) -> RunDetailSchema:
         return get_run_detail(session, run_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+
+
+@router.post("/{run_id}/rerun", response_model=RunDetailSchema)
+def rerun_eval_run(run_id: str, session: RunSession) -> RunDetailSchema:
+    try:
+        return rerun_run(session, run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/{run_id}/repair", response_model=RunDetailSchema)
+def repair_eval_run(run_id: str, session: RunSession) -> RunDetailSchema:
+    try:
+        return repair_run_aggregation(session, run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/{run_id}/status", response_model=RunDetailSchema)
+def update_eval_run_status(
+    run_id: str,
+    payload: StatusPayload,
+    session: RunSession,
+) -> RunDetailSchema:
+    target_status = payload.get("status", "")
+    try:
+        return update_run_status(session, run_id, target_status)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+    except InvalidStateTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/{run_id}/tasks", response_model=RunTaskListSchema)

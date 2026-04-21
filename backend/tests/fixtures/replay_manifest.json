@@ -1,0 +1,30 @@
+{
+  "dataset_fixture": "dataset_valid.json",
+  "agent_version_id": "av_support_qa_v1",
+  "scorer_config_id": "sc_rule_based_v1",
+  "adapter_type": "stub",
+  "adapter_config": {
+    "tool_call_map": {
+      "ds_item_006": true,
+      "ds_item_010": true,
+      "ds_item_017": true
+    }
+  },
+  "expected_summary": {
+    "success_rate": 100.0,
+    "average_latency_ms": 120.0,
+    "category_breakdown": [
+      { "category": "account_access", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "account_security", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "admin_features", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "billing_documents", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "billing_update", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "calculator_total", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "plan_change", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "policy_lookup", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "refund_policy", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "support_hours", "success_rate": 100.0, "failed_tasks": 0 },
+      { "category": "tool_usage", "success_rate": 100.0, "failed_tasks": 0 }
+    ]
+  }
+}
