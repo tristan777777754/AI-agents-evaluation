@@ -72,6 +72,17 @@ export async function createRun(payload: RunCreateRequest): Promise<RunDetail> {
   return parseResponse<RunDetail>(response);
 }
 
+export async function pinRunBaseline(runId: string, baseline: boolean): Promise<RunDetail> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs/${runId}/baseline`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ baseline }),
+  });
+  return parseResponse<RunDetail>(response);
+}
+
 export async function getTaskRunDetail(taskRunId: string): Promise<TaskRunDetail> {
   const response = await fetch(`${getBackendBaseUrl()}/api/v1/task-runs/${taskRunId}`, {
     cache: "no-store",

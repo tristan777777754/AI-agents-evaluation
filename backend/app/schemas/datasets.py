@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.contracts import DatasetItemSchema, DatasetSchema, SourceType
+from app.schemas.contracts import (
+    DatasetItemSchema,
+    DatasetSchema,
+    DatasetSnapshotSchema,
+    SourceType,
+)
 
 
 class DatasetSummarySchema(DatasetSchema):
@@ -10,18 +15,46 @@ class DatasetSummarySchema(DatasetSchema):
 
 
 class DatasetDetailSchema(DatasetSummarySchema):
+    snapshot_id: str
+    snapshot_version: int
+    snapshot_count: int
     categories: list[str] = Field(default_factory=list)
 
 
 class DatasetItemListSchema(BaseModel):
     dataset_id: str
+    snapshot_id: str
     total_count: int
     items: list[DatasetItemSchema]
 
 
 class DatasetUploadResultSchema(BaseModel):
     dataset: DatasetDetailSchema
+    snapshot_id: str
     preview_items: list[DatasetItemSchema] = Field(default_factory=list)
+
+
+class DatasetSnapshotListSchema(BaseModel):
+    dataset_id: str
+    snapshots: list[DatasetSnapshotSchema] = Field(default_factory=list)
+
+
+class DatasetChangedItemSchema(BaseModel):
+    dataset_item_id: str
+    from_item: DatasetItemSchema
+    to_item: DatasetItemSchema
+
+
+class DatasetDiffSchema(BaseModel):
+    dataset_id: str
+    from_snapshot_id: str
+    to_snapshot_id: str
+    added_count: int
+    removed_count: int
+    changed_count: int
+    added: list[DatasetItemSchema] = Field(default_factory=list)
+    removed: list[DatasetItemSchema] = Field(default_factory=list)
+    changed: list[DatasetChangedItemSchema] = Field(default_factory=list)
 
 
 class DatasetValidationErrorSchema(BaseModel):

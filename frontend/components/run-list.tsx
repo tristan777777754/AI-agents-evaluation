@@ -47,13 +47,35 @@ export function RunList({ runs }: RunListProps) {
                 background: "rgba(255,255,255,0.74)",
               }}
             >
-              <strong>{run.run_id}</strong>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                <strong>{run.run_id}</strong>
+                {run.baseline ? (
+                  <span
+                    style={{
+                      padding: "0.2rem 0.5rem",
+                      borderRadius: "999px",
+                      background: "rgba(28, 121, 78, 0.12)",
+                      color: "rgb(28, 121, 78)",
+                      fontSize: "0.8rem",
+                    }}
+                  >
+                    Baseline
+                  </span>
+                ) : null}
+                {run.experiment_tag ? (
+                  <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                    {run.experiment_tag}
+                  </span>
+                ) : null}
+              </div>
               <span>
                 {run.status} · {run.completed_tasks}/{run.total_tasks} completed · {run.failed_tasks} failed
               </span>
               <span style={{ color: "var(--muted)" }}>
-                Dataset {run.dataset_id} · Agent {run.agent_version_id}
+                Dataset {run.dataset_id} · snapshot {run.dataset_snapshot_id ?? "n/a"} · Agent{" "}
+                {run.agent_version_id}
               </span>
+              {run.notes ? <span style={{ color: "var(--muted)" }}>{run.notes}</span> : null}
             </Link>
           ))}
         </div>

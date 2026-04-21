@@ -31,6 +31,7 @@ Give datasets, baselines, and compare results a governance layer so that any com
 - `frontend/app/`
 - `frontend/components/`
 - `frontend/lib/`
+- `shared/`
 - `scripts/smoke.sh`
 - `docs/`
 
@@ -96,7 +97,7 @@ Give datasets, baselines, and compare results a governance layer so that any com
 - Baseline pinning requires multi-user authorization logic that is outside the single-user MVP scope.
 
 ## Completion Report
-- Implementation result:
-- Acceptance result:
-- Remaining work:
-- Next phase prerequisite status:
+- Implementation result: Added immutable dataset snapshots, diff API, baseline pinning endpoint, run experiment metadata, compare lineage, updated frontend bindings, and Phase 10 smoke/test coverage.
+- Acceptance result: Backend/frontend lint, typecheck, unit tests, and `./scripts/smoke.sh phase10` all pass.
+- Remaining work: None within the planned Phase 10 scope.
+- Next phase prerequisite status: Phase 10 is the final planned roadmap phase; no additional phase prerequisite is pending.

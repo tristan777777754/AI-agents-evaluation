@@ -53,6 +53,9 @@ export function DatasetList({ datasets }: DatasetListProps) {
                 {dataset.item_count} items · {dataset.source_type.toUpperCase()} · schema{" "}
                 {dataset.schema_version}
               </span>
+              <span style={{ color: "var(--muted)" }}>
+                Latest snapshot {dataset.latest_snapshot_id ?? "not created yet"}
+              </span>
             </Link>
           ))}
         </div>

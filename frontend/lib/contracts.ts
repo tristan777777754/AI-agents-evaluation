@@ -4,18 +4,18 @@ const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://local
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 9",
+    current_phase: "Phase 10",
     scope: [
-      "human-labelled golden set for scorer verification",
-      "read-only calibration reporting for precision, recall, and accuracy",
-      "per-category scorer quality metrics derived from fixture-backed comparisons",
-      "homepage calibration visibility without mutating canonical run scores",
+      "immutable dataset snapshots with readable historical versions",
+      "dataset diffing, baseline pinning, and run experiment metadata",
+      "compare lineage that exposes dataset, agent-version, and scorer snapshots",
+      "governance metadata that improves reproducibility without fake data",
     ],
     non_goals: [
-      "LLM-as-judge calibration",
-      "multi-scorer benchmark orchestration",
-      "rewriting historical run score records",
-      "changing canonical score schema for completed runs",
+      "automatic dataset generation",
+      "multi-tenant governance",
+      "retroactive backfill for every historical record",
+      "changing compare semantics away from persisted run evidence",
     ],
   },
   run_statuses: [
@@ -37,7 +37,21 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "config_json",
       "created_at",
     ],
-    dataset: ["dataset_id", "name", "description", "schema_version", "source_type"],
+    dataset: [
+      "dataset_id",
+      "name",
+      "description",
+      "schema_version",
+      "source_type",
+      "latest_snapshot_id",
+    ],
+    dataset_snapshot: [
+      "dataset_snapshot_id",
+      "dataset_id",
+      "version_number",
+      "checksum",
+      "created_at",
+    ],
     dataset_item: [
       "dataset_item_id",
       "dataset_id",
@@ -61,8 +75,12 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "run_id",
       "agent_version_id",
       "dataset_id",
+      "dataset_snapshot_id",
       "scorer_config_id",
       "status",
+      "baseline",
+      "experiment_tag",
+      "notes",
       "started_at",
       "completed_at",
     ],

@@ -13,6 +13,8 @@ export type RunCreateRequest = {
   scorer_config_id: string;
   adapter_type: string;
   adapter_config: Record<string, unknown>;
+  experiment_tag: string | null;
+  notes: string | null;
 };
 
 export type RunScore = {

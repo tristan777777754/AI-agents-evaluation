@@ -8,8 +8,12 @@ describe("run summary contract", () => {
       run_id: "run_demo",
       agent_version_id: "av_support_qa_v1",
       dataset_id: "dataset_support_faq_v1",
+      dataset_snapshot_id: "dataset_support_faq_v1__snapshot_001",
       scorer_config_id: "sc_rule_based_v1",
       status: "partial_success",
+      baseline: true,
+      experiment_tag: "phase10-governance",
+      notes: "Pinned baseline run.",
       started_at: null,
       completed_at: null,
       adapter_type: "stub",
@@ -20,5 +24,6 @@ describe("run summary contract", () => {
 
     expect(run.status).toBe("partial_success");
     expect(run.failed_tasks).toBe(2);
+    expect(run.baseline).toBe(true);
   });
 });

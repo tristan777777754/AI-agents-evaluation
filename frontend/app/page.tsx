@@ -108,9 +108,9 @@ export default async function HomePage() {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 9 adds scorer calibration on top of the hardened harness, using a human-labelled
-          golden set so teams can measure whether automatic pass/fail decisions align with review
-          expectations before trusting compare results.
+          Phase 10 adds governance on top of calibrated scoring: immutable dataset snapshots,
+          baseline pinning, experiment metadata, and compare lineage so every regression or
+          improvement can be traced back to exact persisted inputs and configs.
         </p>
       </section>
 

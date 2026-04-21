@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import re
@@ -13,12 +14,21 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import DatasetItemRecord, DatasetRecord
-from app.schemas.contracts import DatasetItemSchema, DatasetSchema, SourceType
+from app.models import DatasetItemRecord, DatasetRecord, DatasetSnapshotRecord
+from app.schemas.contracts import (
+    DatasetItemSchema,
+    DatasetSchema,
+    DatasetSnapshotSchema,
+    SourceType,
+)
 from app.schemas.datasets import (
+    DatasetChangedItemSchema,
     DatasetDetailSchema,
+    DatasetDiffSchema,
     DatasetImportItemSchema,
     DatasetImportPayloadSchema,
+    DatasetItemListSchema,
+    DatasetSnapshotListSchema,
     DatasetSummarySchema,
     DatasetValidationErrorSchema,
 )
@@ -334,39 +344,101 @@ def _normalise_import(
     return NormalizedDatasetImport(dataset=dataset_schema, items=items)
 
 
-def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> DatasetDetailSchema:
-    existing = session.get(DatasetRecord, normalized.dataset.dataset_id)
-    if existing is not None:
-        raise ValueError(f"Dataset '{normalized.dataset.dataset_id}' already exists.")
-
-    incoming_item_ids = [item.dataset_item_id for item in normalized.items]
-    existing_item_ids = session.execute(
-        select(DatasetItemRecord.dataset_item_id).where(
-            DatasetItemRecord.dataset_item_id.in_(incoming_item_ids)
-        )
-    ).scalars()
-    conflicting_item_ids = sorted(set(existing_item_ids))
-    if conflicting_item_ids:
-        raise ValueError(
-            "Dataset item ids already exist: "
-            + ", ".join(conflicting_item_ids[:5])
-            + ("..." if len(conflicting_item_ids) > 5 else "")
-        )
-
-    dataset_record = DatasetRecord(
-        dataset_id=normalized.dataset.dataset_id,
-        name=normalized.dataset.name,
-        description=normalized.dataset.description,
-        schema_version=normalized.dataset.schema_version,
-        source_type=normalized.dataset.source_type.value,
+def _snapshot_checksum(items: list[DatasetItemSchema]) -> str:
+    serialized = json.dumps(
+        [item.model_dump(mode="json") for item in items],
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
     )
-    session.add(dataset_record)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
-    for index, item in enumerate(normalized.items):
+
+def _snapshot_id(dataset_id: str, version_number: int) -> str:
+    return f"{dataset_id}__snapshot_{version_number:03d}"
+
+
+def _get_snapshot(
+    session: Session,
+    dataset_id: str,
+    snapshot_id: str | None,
+) -> tuple[DatasetRecord, DatasetSnapshotRecord]:
+    dataset = session.get(DatasetRecord, dataset_id)
+    if dataset is None:
+        raise LookupError(dataset_id)
+
+    resolved_snapshot_id = snapshot_id or dataset.latest_snapshot_id
+    if resolved_snapshot_id is None:
+        raise LookupError(f"No snapshots found for dataset '{dataset_id}'.")
+
+    snapshot = session.get(DatasetSnapshotRecord, resolved_snapshot_id)
+    if snapshot is None or snapshot.dataset_id != dataset_id:
+        raise LookupError(resolved_snapshot_id)
+
+    return dataset, snapshot
+
+
+def _snapshot_items(session: Session, snapshot_id: str) -> list[DatasetItemRecord]:
+    statement = (
+        select(DatasetItemRecord)
+        .where(DatasetItemRecord.dataset_snapshot_id == snapshot_id)
+        .order_by(DatasetItemRecord.sort_index.asc())
+    )
+    return list(session.execute(statement).scalars().all())
+
+
+def _item_schema(record: DatasetItemRecord) -> DatasetItemSchema:
+    return DatasetItemSchema(
+        dataset_item_id=record.dataset_item_id,
+        dataset_id=record.dataset_id,
+        input_text=record.input_text,
+        category=record.category,
+        difficulty=record.difficulty,
+        expected_output=record.expected_output,
+        rubric_json=record.rubric_json,
+        reference_context=record.reference_context,
+        metadata_json=record.metadata_json,
+    )
+
+
+def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> DatasetDetailSchema:
+    dataset_record = session.get(DatasetRecord, normalized.dataset.dataset_id)
+    if dataset_record is None:
+        dataset_record = DatasetRecord(
+            dataset_id=normalized.dataset.dataset_id,
+            name=normalized.dataset.name,
+            description=normalized.dataset.description,
+            schema_version=normalized.dataset.schema_version,
+            source_type=normalized.dataset.source_type.value,
+        )
+        session.add(dataset_record)
+        version_number = 1
+    else:
+        dataset_record.name = normalized.dataset.name
+        dataset_record.description = normalized.dataset.description
+        dataset_record.schema_version = normalized.dataset.schema_version
+        dataset_record.source_type = normalized.dataset.source_type.value
+        current_max_version = session.scalar(
+            select(func.max(DatasetSnapshotRecord.version_number)).where(
+                DatasetSnapshotRecord.dataset_id == normalized.dataset.dataset_id
+            )
+        )
+        version_number = int(current_max_version or 0) + 1
+
+    snapshot_record = DatasetSnapshotRecord(
+        dataset_snapshot_id=_snapshot_id(normalized.dataset.dataset_id, version_number),
+        dataset_id=normalized.dataset.dataset_id,
+        version_number=version_number,
+        checksum=_snapshot_checksum(normalized.items),
+    )
+    session.add(snapshot_record)
+
+    for index, item in enumerate(normalized.items, start=1):
         session.add(
             DatasetItemRecord(
                 dataset_item_id=item.dataset_item_id,
                 dataset_id=normalized.dataset.dataset_id,
+                dataset_snapshot_id=snapshot_record.dataset_snapshot_id,
                 sort_index=index,
                 input_text=item.input_text,
                 category=item.category,
@@ -386,46 +458,70 @@ def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> Dat
             "Dataset import failed because one or more record ids already exist."
         ) from exc
 
-    return get_dataset_detail(session, normalized.dataset.dataset_id)
+    dataset_record.latest_snapshot_id = snapshot_record.dataset_snapshot_id
+    session.commit()
+
+    return get_dataset_detail(
+        session,
+        normalized.dataset.dataset_id,
+        snapshot_id=snapshot_record.dataset_snapshot_id,
+    )
 
 
 def list_datasets(session: Session) -> list[DatasetSummarySchema]:
-    query = (
-        select(DatasetRecord, func.count(DatasetItemRecord.dataset_item_id))
-        .outerjoin(DatasetItemRecord, DatasetItemRecord.dataset_id == DatasetRecord.dataset_id)
-        .group_by(DatasetRecord.dataset_id)
-        .order_by(DatasetRecord.created_at.desc())
-    )
-    results = session.execute(query).all()
-    return [
-        DatasetSummarySchema(
-            dataset_id=dataset.dataset_id,
-            name=dataset.name,
-            description=dataset.description,
-            schema_version=dataset.schema_version,
-            source_type=SourceType(dataset.source_type),
-            item_count=item_count,
+    datasets = session.execute(
+        select(DatasetRecord).order_by(DatasetRecord.created_at.desc())
+    ).scalars()
+    summaries: list[DatasetSummarySchema] = []
+    for dataset in datasets:
+        item_count = 0
+        if dataset.latest_snapshot_id is not None:
+            item_count = int(
+                session.scalar(
+                    select(func.count(DatasetItemRecord.dataset_item_record_id)).where(
+                        DatasetItemRecord.dataset_snapshot_id == dataset.latest_snapshot_id
+                    )
+                )
+                or 0
+            )
+        summaries.append(
+            DatasetSummarySchema(
+                dataset_id=dataset.dataset_id,
+                name=dataset.name,
+                description=dataset.description,
+                schema_version=dataset.schema_version,
+                source_type=SourceType(dataset.source_type),
+                latest_snapshot_id=dataset.latest_snapshot_id,
+                item_count=item_count,
+            )
         )
-        for dataset, item_count in results
-    ]
+    return summaries
 
 
-def get_dataset_detail(session: Session, dataset_id: str) -> DatasetDetailSchema:
-    dataset = session.get(DatasetRecord, dataset_id)
-    if dataset is None:
-        raise LookupError(dataset_id)
+def get_dataset_detail(
+    session: Session,
+    dataset_id: str,
+    *,
+    snapshot_id: str | None = None,
+) -> DatasetDetailSchema:
+    dataset, snapshot = _get_snapshot(session, dataset_id, snapshot_id)
 
     item_count = session.scalar(
-        select(func.count(DatasetItemRecord.dataset_item_id)).where(
-            DatasetItemRecord.dataset_id == dataset_id
+        select(func.count(DatasetItemRecord.dataset_item_record_id)).where(
+            DatasetItemRecord.dataset_snapshot_id == snapshot.dataset_snapshot_id
         )
     )
     categories = session.execute(
         select(DatasetItemRecord.category)
-        .where(DatasetItemRecord.dataset_id == dataset_id)
+        .where(DatasetItemRecord.dataset_snapshot_id == snapshot.dataset_snapshot_id)
         .distinct()
         .order_by(DatasetItemRecord.category.asc())
     ).scalars()
+    snapshot_count = session.scalar(
+        select(func.count(DatasetSnapshotRecord.dataset_snapshot_id)).where(
+            DatasetSnapshotRecord.dataset_id == dataset_id
+        )
+    )
 
     return DatasetDetailSchema(
         dataset_id=dataset.dataset_id,
@@ -433,33 +529,100 @@ def get_dataset_detail(session: Session, dataset_id: str) -> DatasetDetailSchema
         description=dataset.description,
         schema_version=dataset.schema_version,
         source_type=SourceType(dataset.source_type),
+        latest_snapshot_id=dataset.latest_snapshot_id,
+        snapshot_id=snapshot.dataset_snapshot_id,
+        snapshot_version=snapshot.version_number,
+        snapshot_count=int(snapshot_count or 0),
         item_count=item_count or 0,
         categories=list(categories),
     )
 
 
-def get_dataset_items(session: Session, dataset_id: str) -> list[DatasetItemSchema]:
+def get_dataset_items(
+    session: Session,
+    dataset_id: str,
+    *,
+    snapshot_id: str | None = None,
+) -> DatasetItemListSchema:
+    _, snapshot = _get_snapshot(session, dataset_id, snapshot_id)
+    records = _snapshot_items(session, snapshot.dataset_snapshot_id)
+    return DatasetItemListSchema(
+        dataset_id=dataset_id,
+        snapshot_id=snapshot.dataset_snapshot_id,
+        total_count=len(records),
+        items=[_item_schema(record) for record in records],
+    )
+
+
+def list_dataset_snapshots(session: Session, dataset_id: str) -> DatasetSnapshotListSchema:
     dataset = session.get(DatasetRecord, dataset_id)
     if dataset is None:
         raise LookupError(dataset_id)
 
     records = session.execute(
-        select(DatasetItemRecord)
-        .where(DatasetItemRecord.dataset_id == dataset_id)
-        .order_by(DatasetItemRecord.sort_index.asc())
+        select(DatasetSnapshotRecord)
+        .where(DatasetSnapshotRecord.dataset_id == dataset_id)
+        .order_by(DatasetSnapshotRecord.version_number.asc())
     ).scalars()
+    return DatasetSnapshotListSchema(
+        dataset_id=dataset_id,
+        snapshots=[
+            DatasetSnapshotSchema(
+                dataset_snapshot_id=record.dataset_snapshot_id,
+                dataset_id=record.dataset_id,
+                version_number=record.version_number,
+                checksum=record.checksum,
+                created_at=record.created_at.isoformat() if record.created_at else None,
+            )
+            for record in records
+        ],
+    )
 
-    return [
-        DatasetItemSchema(
-            dataset_item_id=record.dataset_item_id,
-            dataset_id=record.dataset_id,
-            input_text=record.input_text,
-            category=record.category,
-            difficulty=record.difficulty,
-            expected_output=record.expected_output,
-            rubric_json=record.rubric_json,
-            reference_context=record.reference_context,
-            metadata_json=record.metadata_json,
+
+def get_dataset_diff(
+    session: Session,
+    dataset_id: str,
+    *,
+    from_snapshot_id: str,
+    to_snapshot_id: str,
+) -> DatasetDiffSchema:
+    _, from_snapshot = _get_snapshot(session, dataset_id, from_snapshot_id)
+    _, to_snapshot = _get_snapshot(session, dataset_id, to_snapshot_id)
+
+    from_items = {
+        record.dataset_item_id: _item_schema(record)
+        for record in _snapshot_items(session, from_snapshot.dataset_snapshot_id)
+    }
+    to_items = {
+        record.dataset_item_id: _item_schema(record)
+        for record in _snapshot_items(session, to_snapshot.dataset_snapshot_id)
+    }
+
+    from_ids = set(from_items)
+    to_ids = set(to_items)
+    added = [to_items[item_id] for item_id in sorted(to_ids - from_ids)]
+    removed = [from_items[item_id] for item_id in sorted(from_ids - to_ids)]
+
+    changed: list[DatasetChangedItemSchema] = []
+    for item_id in sorted(from_ids & to_ids):
+        if from_items[item_id].model_dump(mode="json") == to_items[item_id].model_dump(mode="json"):
+            continue
+        changed.append(
+            DatasetChangedItemSchema(
+                dataset_item_id=item_id,
+                from_item=from_items[item_id],
+                to_item=to_items[item_id],
+            )
         )
-        for record in records
-    ]
+
+    return DatasetDiffSchema(
+        dataset_id=dataset_id,
+        from_snapshot_id=from_snapshot.dataset_snapshot_id,
+        to_snapshot_id=to_snapshot.dataset_snapshot_id,
+        added_count=len(added),
+        removed_count=len(removed),
+        changed_count=len(changed),
+        added=added,
+        removed=removed,
+        changed=changed,
+    )

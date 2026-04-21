@@ -30,6 +30,23 @@ export type CompareCase = {
   candidate_final_output: string | null;
 };
 
+export type CompareRunLineage = {
+  run_id: string;
+  dataset_id: string;
+  dataset_snapshot_id: string | null;
+  agent_version_id: string;
+  agent_version_snapshot_hash: string;
+  scorer_config_id: string;
+  scorer_snapshot_hash: string;
+  baseline: boolean;
+  experiment_tag: string | null;
+};
+
+export type CompareLineage = {
+  baseline: CompareRunLineage;
+  candidate: CompareRunLineage;
+};
+
 export type RunComparison = {
   baseline_run_id: string;
   candidate_run_id: string;
@@ -44,6 +61,7 @@ export type RunComparison = {
   average_latency_ms: CompareMetricDelta;
   total_cost: CompareMetricDelta;
   review_needed_count: CompareMetricDelta;
+  lineage: CompareLineage;
   category_deltas: CompareCategoryDelta[];
   improvements: CompareCase[];
   regressions: CompareCase[];

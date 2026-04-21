@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.schemas.datasets import (
     DatasetDetailSchema,
+    DatasetDiffSchema,
     DatasetImportErrorSchema,
     DatasetItemListSchema,
+    DatasetSnapshotListSchema,
     DatasetSummarySchema,
     DatasetUploadResultSchema,
 )
@@ -19,7 +21,9 @@ from app.services.datasets import (
     DatasetImportValidationException,
     create_dataset,
     get_dataset_detail,
+    get_dataset_diff,
     get_dataset_items,
+    list_dataset_snapshots,
     list_datasets,
     parse_dataset_upload,
 )
@@ -75,17 +79,26 @@ async def upload_dataset(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
-    return DatasetUploadResultSchema(dataset=dataset, preview_items=normalized.items[:5])
+    return DatasetUploadResultSchema(
+        dataset=dataset,
+        snapshot_id=dataset.snapshot_id,
+        preview_items=normalized.items[:5],
+    )
 
 
 @router.get("", response_model=list[DatasetSummarySchema])
 def get_datasets(session: DatasetSession) -> list[DatasetSummarySchema]:
     return list_datasets(session)
 
+
 @router.get("/{dataset_id}", response_model=DatasetDetailSchema)
-def get_dataset(dataset_id: str, session: DatasetSession) -> DatasetDetailSchema:
+def get_dataset(
+    dataset_id: str,
+    session: DatasetSession,
+    snapshot_id: str | None = None,
+) -> DatasetDetailSchema:
     try:
-        return get_dataset_detail(session, dataset_id)
+        return get_dataset_detail(session, dataset_id, snapshot_id=snapshot_id)
     except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -97,13 +110,47 @@ def get_dataset(dataset_id: str, session: DatasetSession) -> DatasetDetailSchema
 def get_dataset_item_list(
     dataset_id: str,
     session: DatasetSession,
+    snapshot_id: str | None = None,
 ) -> DatasetItemListSchema:
     try:
-        items = get_dataset_items(session, dataset_id)
+        return get_dataset_items(session, dataset_id, snapshot_id=snapshot_id)
     except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dataset not found.",
         ) from exc
 
-    return DatasetItemListSchema(dataset_id=dataset_id, total_count=len(items), items=items)
+
+@router.get("/{dataset_id}/snapshots", response_model=DatasetSnapshotListSchema)
+def get_dataset_snapshot_list(
+    dataset_id: str,
+    session: DatasetSession,
+) -> DatasetSnapshotListSchema:
+    try:
+        return list_dataset_snapshots(session, dataset_id)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found.",
+        ) from exc
+
+
+@router.get("/{dataset_id}/diff", response_model=DatasetDiffSchema)
+def get_dataset_snapshot_diff(
+    dataset_id: str,
+    from_snapshot: str,
+    to_snapshot: str,
+    session: DatasetSession,
+) -> DatasetDiffSchema:
+    try:
+        return get_dataset_diff(
+            session,
+            dataset_id,
+            from_snapshot_id=from_snapshot,
+            to_snapshot_id=to_snapshot,
+        )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset snapshot not found.",
+        ) from exc

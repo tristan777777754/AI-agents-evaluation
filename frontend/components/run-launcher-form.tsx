@@ -38,6 +38,8 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
     const datasetId = String(formData.get("dataset_id") ?? "");
     const agentVersionId = String(formData.get("agent_version_id") ?? "");
     const scorerConfigId = String(formData.get("scorer_config_id") ?? "");
+    const experimentTag = String(formData.get("experiment_tag") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim();
 
     try {
       const run = await createRun({
@@ -48,6 +50,8 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
         adapter_config: {
           failure_mode: failureMode,
         },
+        experiment_tag: experimentTag || null,
+        notes: notes || null,
       });
       router.push(`/runs/${run.run_id}`);
       router.refresh();
@@ -114,6 +118,26 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
           <option value="none">Completed</option>
           <option value="all">Force full failure</option>
         </select>
+      </label>
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span>Experiment tag</span>
+        <input
+          name="experiment_tag"
+          type="text"
+          placeholder="phase10-governance"
+          disabled={submitting}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span>Notes</span>
+        <textarea
+          name="notes"
+          placeholder="Optional run context for compare lineage."
+          rows={3}
+          disabled={submitting}
+        />
       </label>
 
       <button

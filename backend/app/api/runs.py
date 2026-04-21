@@ -23,6 +23,7 @@ from app.services.runs import (
     list_runs,
     repair_run_aggregation,
     rerun_run,
+    update_run_baseline,
     update_run_status,
 )
 from app.services.summary import get_run_dashboard_summary
@@ -31,6 +32,7 @@ from app.worker.tasks import execute_run_task
 router = APIRouter()
 RunSession = Annotated[Session, Depends(get_session)]
 StatusPayload = Annotated[dict[str, str], Body(...)]
+BaselinePayload = Annotated[dict[str, bool], Body(...)]
 
 
 @router.post("", response_model=RunDetailSchema, status_code=status.HTTP_201_CREATED)
@@ -114,6 +116,18 @@ def update_eval_run_status(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/{run_id}/baseline", response_model=RunDetailSchema)
+def pin_eval_run_baseline(
+    run_id: str,
+    payload: BaselinePayload,
+    session: RunSession,
+) -> RunDetailSchema:
+    try:
+        return update_run_baseline(session, run_id, payload.get("baseline", True))
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
 
 
 @router.get("/{run_id}/tasks", response_model=RunTaskListSchema)

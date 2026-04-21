@@ -103,23 +103,30 @@ def get_latest_calibration_report() -> CalibrationReportSchema:
             false_negative_count += 1
 
         if not is_correct or predicted_failure_reason != expected_failure_reason:
+            expected_failure_reason_value = (
+                expected_failure_reason.value if expected_failure_reason is not None else None
+            )
+            predicted_failure_reason_value = (
+                predicted_failure_reason.value if predicted_failure_reason is not None else None
+            )
             disagreements.append(
                 CalibrationDisagreementSchema(
                     dataset_item_id=item.dataset_item_id,
                     category=item.category,
                     expected_verdict=expected_verdict,
                     predicted_verdict=predicted_verdict,
-                    expected_failure_reason=(
-                        expected_failure_reason.value if expected_failure_reason is not None else None
-                    ),
-                    predicted_failure_reason=(
-                        predicted_failure_reason.value if predicted_failure_reason is not None else None
-                    ),
+                    expected_failure_reason=expected_failure_reason_value,
+                    predicted_failure_reason=predicted_failure_reason_value,
                     correctness=correctness,
                 )
             )
 
-    total_cases = true_positive_count + false_positive_count + true_negative_count + false_negative_count
+    total_cases = (
+        true_positive_count
+        + false_positive_count
+        + true_negative_count
+        + false_negative_count
+    )
     labelled_pass_cases = true_positive_count + false_negative_count
     labelled_fail_cases = true_negative_count + false_positive_count
     predicted_pass_cases = true_positive_count + false_positive_count

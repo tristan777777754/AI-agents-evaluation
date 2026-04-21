@@ -20,6 +20,7 @@ def test_upload_valid_json_dataset_persists_records(client: TestClient) -> None:
     body = response.json()
     assert body["dataset"]["dataset_id"] == "dataset_support_faq_v1"
     assert body["dataset"]["item_count"] == 20
+    assert body["snapshot_id"] == "dataset_support_faq_v1__snapshot_001"
     assert len(body["preview_items"]) == 5
 
     dataset_list = client.get("/api/v1/datasets")
@@ -28,6 +29,7 @@ def test_upload_valid_json_dataset_persists_records(client: TestClient) -> None:
 
     items = client.get("/api/v1/datasets/dataset_support_faq_v1/items")
     assert items.status_code == 200
+    assert items.json()["snapshot_id"] == "dataset_support_faq_v1__snapshot_001"
     assert items.json()["total_count"] == 20
 
 
@@ -90,7 +92,7 @@ def test_upload_csv_dataset_uses_form_metadata(client: TestClient) -> None:
     assert body["dataset"]["item_count"] == 2
 
 
-def test_duplicate_dataset_id_returns_conflict(client: TestClient) -> None:
+def test_duplicate_dataset_id_creates_new_snapshot(client: TestClient) -> None:
     with (FIXTURE_DIR / "dataset_valid.json").open("rb") as handle:
         first = client.post(
             "/api/v1/datasets",
@@ -98,6 +100,7 @@ def test_duplicate_dataset_id_returns_conflict(client: TestClient) -> None:
         )
 
     assert first.status_code == 201
+    assert first.json()["snapshot_id"] == "dataset_support_faq_v1__snapshot_001"
 
     with (FIXTURE_DIR / "dataset_valid.json").open("rb") as handle:
         second = client.post(
@@ -105,7 +108,13 @@ def test_duplicate_dataset_id_returns_conflict(client: TestClient) -> None:
             files={"file": ("dataset_valid.json", handle, "application/json")},
         )
 
-    assert second.status_code == 409
+    assert second.status_code == 201
+    assert second.json()["snapshot_id"] == "dataset_support_faq_v1__snapshot_002"
+
+    dataset = client.get("/api/v1/datasets/dataset_support_faq_v1")
+    assert dataset.status_code == 200
+    assert dataset.json()["latest_snapshot_id"] == "dataset_support_faq_v1__snapshot_002"
+    assert dataset.json()["snapshot_count"] == 2
 
 
 def test_uploading_multiple_csv_datasets_without_item_ids_generates_unique_ids(

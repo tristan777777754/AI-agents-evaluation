@@ -20,6 +20,8 @@ class RunCreateRequestSchema(BaseModel):
     scorer_config_id: str
     adapter_type: Literal["stub", "openai"] = "stub"
     adapter_config: dict[str, object] = Field(default_factory=dict)
+    experiment_tag: str | None = None
+    notes: str | None = None
 
 
 class RunScoreSchema(BaseModel):

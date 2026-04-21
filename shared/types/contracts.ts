@@ -44,6 +44,15 @@ export type Dataset = {
   description: string | null;
   schema_version: string;
   source_type: SourceType;
+  latest_snapshot_id: string | null;
+};
+
+export type DatasetSnapshot = {
+  dataset_snapshot_id: string;
+  dataset_id: string;
+  version_number: number;
+  checksum: string;
+  created_at: string | null;
 };
 
 export type DatasetItem = {
@@ -71,8 +80,12 @@ export type EvalRun = {
   run_id: string;
   agent_version_id: string;
   dataset_id: string;
+  dataset_snapshot_id: string | null;
   scorer_config_id: string;
   status: RunStatus;
+  baseline: boolean;
+  experiment_tag: string | null;
+  notes: string | null;
   started_at: string | null;
   completed_at: string | null;
 };

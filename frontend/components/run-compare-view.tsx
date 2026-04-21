@@ -87,6 +87,43 @@ export function RunCompareView({ comparison }: RunCompareViewProps) {
           {comparison.regression_count} regressions
         </p>
 
+        <section
+          style={{
+            display: "grid",
+            gap: "1rem",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          }}
+        >
+          {[
+            { label: "Baseline lineage", value: comparison.lineage.baseline },
+            { label: "Candidate lineage", value: comparison.lineage.candidate },
+          ].map((entry) => (
+            <article
+              key={entry.label}
+              style={{
+                display: "grid",
+                gap: "0.35rem",
+                padding: "1rem",
+                borderRadius: "18px",
+                border: "1px solid var(--border)",
+                background: "rgba(255,255,255,0.72)",
+              }}
+            >
+              <strong>{entry.label}</strong>
+              <span>Dataset snapshot {entry.value.dataset_snapshot_id ?? "n/a"}</span>
+              <span>Agent snapshot {entry.value.agent_version_snapshot_hash}</span>
+              <span>
+                Scorer {entry.value.scorer_config_id} · {entry.value.scorer_snapshot_hash}
+              </span>
+              {entry.value.experiment_tag ? (
+                <span style={{ color: "var(--muted)" }}>
+                  Experiment {entry.value.experiment_tag}
+                </span>
+              ) : null}
+            </article>
+          ))}
+        </section>
+
         <div
           style={{
             display: "grid",

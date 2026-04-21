@@ -23,8 +23,10 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const baselineDefault = runs[1]?.run_id ?? runs[0]?.run_id ?? "";
-  const candidateDefault = runs[0]?.run_id ?? "";
+  const baselineRun = runs.find((run) => run.baseline) ?? runs[1] ?? runs[0];
+  const baselineDefault = baselineRun?.run_id ?? "";
+  const candidateDefault =
+    runs.find((run) => run.run_id !== baselineDefault)?.run_id ?? runs[0]?.run_id ?? "";
 
   function handleSubmit(formData: FormData) {
     const baselineRunId = String(formData.get("baseline_run_id") ?? "");
@@ -78,6 +80,7 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
           {runs.map((run) => (
             <option key={run.run_id} value={run.run_id}>
               {run.run_id} · {run.status}
+              {run.baseline ? " · baseline" : ""}
             </option>
           ))}
         </select>
@@ -89,6 +92,7 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
           {runs.map((run) => (
             <option key={run.run_id} value={run.run_id}>
               {run.run_id} · {run.status}
+              {run.baseline ? " · baseline" : ""}
             </option>
           ))}
         </select>

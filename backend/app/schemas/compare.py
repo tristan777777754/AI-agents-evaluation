@@ -35,6 +35,23 @@ class CompareCaseSchema(BaseModel):
     candidate_final_output: str | None = None
 
 
+class CompareRunLineageSchema(BaseModel):
+    run_id: str
+    dataset_id: str
+    dataset_snapshot_id: str | None = None
+    agent_version_id: str
+    agent_version_snapshot_hash: str
+    scorer_config_id: str
+    scorer_snapshot_hash: str
+    baseline: bool = False
+    experiment_tag: str | None = None
+
+
+class CompareLineageSchema(BaseModel):
+    baseline: CompareRunLineageSchema
+    candidate: CompareRunLineageSchema
+
+
 class RunComparisonSchema(BaseModel):
     baseline_run_id: str
     candidate_run_id: str
@@ -49,6 +66,7 @@ class RunComparisonSchema(BaseModel):
     average_latency_ms: CompareMetricDeltaSchema
     total_cost: CompareMetricDeltaSchema
     review_needed_count: CompareMetricDeltaSchema
+    lineage: CompareLineageSchema
     category_deltas: list[CompareCategoryDeltaSchema]
     improvements: list[CompareCaseSchema]
     regressions: list[CompareCaseSchema]

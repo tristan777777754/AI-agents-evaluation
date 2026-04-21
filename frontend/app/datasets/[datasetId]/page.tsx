@@ -51,6 +51,10 @@ export default async function DatasetDetailPage({ params }: DatasetDetailPagePro
           <p style={{ margin: 0 }}>
             {dataset.item_count} items · categories: {dataset.categories.join(", ") || "none"}
           </p>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            Snapshot {dataset.snapshot_id} · version {dataset.snapshot_version} of {dataset.snapshot_count}
+            {dataset.latest_snapshot_id ? ` · latest ${dataset.latest_snapshot_id}` : ""}
+          </p>
         </section>
 
         <DatasetItemsTable datasetItems={datasetItems} />

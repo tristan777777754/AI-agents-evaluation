@@ -18,6 +18,30 @@ describe("phase 6 compare and review contracts", () => {
       average_latency_ms: { baseline: 120, candidate: 118, delta: -2 },
       total_cost: { baseline: 0.011, candidate: 0.0105, delta: -0.0005 },
       review_needed_count: { baseline: 2, candidate: 1, delta: -1 },
+      lineage: {
+        baseline: {
+          run_id: "run_v1",
+          dataset_id: "dataset_support_faq_v1",
+          dataset_snapshot_id: "dataset_support_faq_v1__snapshot_001",
+          agent_version_id: "av_support_qa_v1",
+          agent_version_snapshot_hash: "hash_v1",
+          scorer_config_id: "sc_rule_based_v1",
+          scorer_snapshot_hash: "sc_hash_v1",
+          baseline: true,
+          experiment_tag: "baseline-exp",
+        },
+        candidate: {
+          run_id: "run_v2",
+          dataset_id: "dataset_support_faq_v1",
+          dataset_snapshot_id: "dataset_support_faq_v1__snapshot_002",
+          agent_version_id: "av_support_qa_v2",
+          agent_version_snapshot_hash: "hash_v2",
+          scorer_config_id: "sc_rule_based_v1",
+          scorer_snapshot_hash: "sc_hash_v1",
+          baseline: false,
+          experiment_tag: "candidate-exp",
+        },
+      },
       category_deltas: [
         {
           category: "refund_policy",
@@ -49,6 +73,7 @@ describe("phase 6 compare and review contracts", () => {
 
     expect(comparison.improvement_count).toBe(2);
     expect(comparison.category_deltas[0]?.success_rate_delta).toBe(33.33);
+    expect(comparison.lineage.baseline.dataset_snapshot_id).toContain("snapshot_001");
   });
 
   it("supports review queue items with persisted verdicts", () => {

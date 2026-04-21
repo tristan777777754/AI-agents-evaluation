@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import defaultdict
 
 from sqlalchemy import select
@@ -9,7 +11,9 @@ from app.models import EvalRunRecord, EvalTaskRunRecord
 from app.schemas.compare import (
     CompareCaseSchema,
     CompareCategoryDeltaSchema,
+    CompareLineageSchema,
     CompareMetricDeltaSchema,
+    CompareRunLineageSchema,
     RunComparisonSchema,
 )
 from app.schemas.contracts import FailureReason, RunStatus
@@ -50,6 +54,25 @@ def _failure_reason(task_run: EvalTaskRunRecord) -> FailureReason | None:
     if task_run.trace is None or task_run.trace.failure_reason is None:
         return None
     return FailureReason(task_run.trace.failure_reason)
+
+
+def _snapshot_hash(payload: dict[str, object]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:12]
+
+
+def _run_lineage_schema(run: EvalRunRecord) -> CompareRunLineageSchema:
+    return CompareRunLineageSchema(
+        run_id=run.run_id,
+        dataset_id=run.dataset_id,
+        dataset_snapshot_id=run.dataset_snapshot_id,
+        agent_version_id=run.agent_version_id,
+        agent_version_snapshot_hash=_snapshot_hash(run.agent_version_snapshot_json),
+        scorer_config_id=run.scorer_config_id,
+        scorer_snapshot_hash=_snapshot_hash(run.scorer_config_snapshot_json),
+        baseline=run.baseline,
+        experiment_tag=run.experiment_tag,
+    )
 
 
 def _case_schema(
@@ -166,6 +189,10 @@ def get_run_comparison(
         review_needed_count=_metric_delta(
             baseline_summary.review_needed_count,
             candidate_summary.review_needed_count,
+        ),
+        lineage=CompareLineageSchema(
+            baseline=_run_lineage_schema(baseline_run),
+            candidate=_run_lineage_schema(candidate_run),
         ),
         category_deltas=category_deltas,
         improvements=improvements,

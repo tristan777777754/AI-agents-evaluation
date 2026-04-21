@@ -51,6 +51,11 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
             {run.completed_tasks}/{run.total_tasks} completed · {run.failed_tasks} failed · adapter{" "}
             {run.adapter_type}
           </p>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            Snapshot {run.dataset_snapshot_id ?? "n/a"} · {run.baseline ? "Baseline run" : "Candidate run"}
+            {run.experiment_tag ? ` · Experiment ${run.experiment_tag}` : ""}
+          </p>
+          {run.notes ? <p style={{ margin: 0, color: "var(--muted)" }}>{run.notes}</p> : null}
         </section>
 
         <RunTaskTable runTasks={runTasks} />

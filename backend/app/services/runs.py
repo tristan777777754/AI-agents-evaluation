@@ -10,7 +10,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.adapters import OpenAIAgentAdapter, StubAgentAdapter
 from app.config import settings
-from app.models import DatasetRecord, EvalRunRecord, EvalTaskRunRecord, ScoreRecord, TraceRecord
+from app.models import (
+    DatasetItemRecord,
+    DatasetRecord,
+    DatasetSnapshotRecord,
+    EvalRunRecord,
+    EvalTaskRunRecord,
+    ScoreRecord,
+    TraceRecord,
+)
 from app.schemas.contracts import EvalRunSchema, FailureReason, RunStatus, TraceSummarySchema
 from app.schemas.runs import (
     RunCreateRequestSchema,
@@ -132,8 +140,12 @@ def _run_summary_schema(record: EvalRunRecord) -> RunSummarySchema:
         run_id=record.run_id,
         agent_version_id=record.agent_version_id,
         dataset_id=record.dataset_id,
+        dataset_snapshot_id=record.dataset_snapshot_id,
         scorer_config_id=record.scorer_config_id,
         status=RunStatus(record.status),
+        baseline=record.baseline,
+        experiment_tag=record.experiment_tag,
+        notes=record.notes,
         started_at=_utc_iso(record.started_at),
         completed_at=_utc_iso(record.completed_at),
         adapter_type=record.adapter_type,
@@ -153,7 +165,10 @@ def _run_detail_schema(record: EvalRunRecord) -> RunDetailSchema:
 
 
 def list_runs(session: Session) -> list[RunSummarySchema]:
-    statement = select(EvalRunRecord).order_by(EvalRunRecord.created_at.desc())
+    statement = select(EvalRunRecord).order_by(
+        EvalRunRecord.baseline.desc(),
+        EvalRunRecord.created_at.desc(),
+    )
     runs = session.execute(statement).scalars().all()
     return [_run_summary_schema(run) for run in runs]
 
@@ -194,23 +209,40 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
     dataset = session.get(DatasetRecord, payload.dataset_id)
     if dataset is None:
         raise LookupError("Dataset not found.")
+    if dataset.latest_snapshot_id is None:
+        raise LookupError("Dataset has no immutable snapshot yet.")
+
+    dataset_snapshot = session.get(DatasetSnapshotRecord, dataset.latest_snapshot_id)
+    if dataset_snapshot is None:
+        raise LookupError("Dataset snapshot not found.")
 
     agent_version = get_agent_version(payload.agent_version_id)
     scorer_config = get_scorer_config(payload.scorer_config_id)
     _build_adapter(payload.adapter_type)
 
-    dataset_items = list(dataset.items)
+    dataset_items = list(
+        session.execute(
+            select(DatasetItemRecord)
+            .where(DatasetItemRecord.dataset_snapshot_id == dataset.latest_snapshot_id)
+            .order_by(DatasetItemRecord.sort_index.asc())
+        ).scalars()
+    )
     run_id = f"run_{uuid4().hex[:12]}"
     run_record = EvalRunRecord(
         run_id=run_id,
         agent_version_id=agent_version.agent_version_id,
         dataset_id=dataset.dataset_id,
+        dataset_snapshot_id=dataset_snapshot.dataset_snapshot_id,
+        dataset_checksum=dataset_snapshot.checksum,
         scorer_config_id=scorer_config.scorer_config_id,
         status=RunStatus.pending.value,
         adapter_type=payload.adapter_type,
         agent_version_snapshot_json=agent_version.model_dump(mode="json"),
         scorer_config_snapshot_json=scorer_config.model_dump(mode="json"),
         adapter_config_json=payload.adapter_config,
+        baseline=False,
+        experiment_tag=payload.experiment_tag,
+        notes=payload.notes,
         total_tasks=len(dataset_items),
         completed_tasks=0,
         failed_tasks=0,
@@ -238,8 +270,12 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
         run_id=run_record.run_id,
         agent_version_id=run_record.agent_version_id,
         dataset_id=run_record.dataset_id,
+        dataset_snapshot_id=run_record.dataset_snapshot_id,
         scorer_config_id=run_record.scorer_config_id,
         status=RunStatus(run_record.status),
+        baseline=run_record.baseline,
+        experiment_tag=run_record.experiment_tag,
+        notes=run_record.notes,
         started_at=_utc_iso(run_record.started_at),
         completed_at=_utc_iso(run_record.completed_at),
     )
@@ -645,6 +681,17 @@ def update_run_status(session: Session, run_id: str, target_status: str) -> RunD
         run.completed_at = None
     elif run.completed_at is None:
         run.completed_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(run)
+    return _run_detail_schema(run)
+
+
+def update_run_baseline(session: Session, run_id: str, baseline: bool) -> RunDetailSchema:
+    run = session.get(EvalRunRecord, run_id)
+    if run is None:
+        raise LookupError("Run not found.")
+
+    run.baseline = baseline
     session.commit()
     session.refresh(run)
     return _run_detail_schema(run)

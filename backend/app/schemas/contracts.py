@@ -28,7 +28,7 @@ class SourceType(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 9"
+    current_phase: str = "Phase 10"
     scope: list[str]
     non_goals: list[str]
 
@@ -57,6 +57,15 @@ class DatasetSchema(BaseModel):
     description: str | None = None
     schema_version: str = "1.0"
     source_type: SourceType
+    latest_snapshot_id: str | None = None
+
+
+class DatasetSnapshotSchema(BaseModel):
+    dataset_snapshot_id: str
+    dataset_id: str
+    version_number: int
+    checksum: str
+    created_at: str | None = None
 
 
 class DatasetItemSchema(BaseModel):
@@ -84,8 +93,12 @@ class EvalRunSchema(BaseModel):
     run_id: str = Field(..., examples=["run_20260420_001"])
     agent_version_id: str
     dataset_id: str
+    dataset_snapshot_id: str | None = None
     scorer_config_id: str
     status: RunStatus
+    baseline: bool = False
+    experiment_tag: str | None = None
+    notes: str | None = None
     started_at: str | None = None
     completed_at: str | None = None
 
@@ -139,16 +152,16 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "human-labelled golden set for scorer verification",
-                    "read-only calibration reporting for precision, recall, and accuracy",
-                    "per-category scorer quality metrics derived from fixture-backed comparisons",
-                    "homepage calibration visibility without mutating canonical run scores",
+                    "immutable dataset snapshots with readable historical versions",
+                    "dataset diffing, baseline pinning, and run experiment metadata",
+                    "compare lineage that exposes dataset, agent-version, and scorer snapshots",
+                    "governance metadata that improves reproducibility without fake data",
                 ],
                 non_goals=[
-                    "LLM-as-judge calibration",
-                    "multi-scorer benchmark orchestration",
-                    "rewriting historical run score records",
-                    "changing canonical score schema for completed runs",
+                    "automatic dataset generation",
+                    "multi-tenant governance",
+                    "retroactive backfill for every historical record",
+                    "changing compare semantics away from persisted run evidence",
                 ],
             ),
             run_statuses=list(RunStatus),
@@ -156,6 +169,7 @@ class PhaseContractSnapshot(BaseModel):
                 "agent": list(AgentSchema.model_fields.keys()),
                 "agent_version": list(AgentVersionSchema.model_fields.keys()),
                 "dataset": list(DatasetSchema.model_fields.keys()),
+                "dataset_snapshot": list(DatasetSnapshotSchema.model_fields.keys()),
                 "dataset_item": list(DatasetItemSchema.model_fields.keys()),
                 "scorer_config": list(ScorerConfigSchema.model_fields.keys()),
                 "eval_run": list(EvalRunSchema.model_fields.keys()),

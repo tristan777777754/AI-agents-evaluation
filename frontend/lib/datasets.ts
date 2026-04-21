@@ -1,7 +1,9 @@
 import type {
   DatasetDetail,
+  DatasetDiff,
   DatasetImportError,
   DatasetItemList,
+  DatasetSnapshotList,
   DatasetSummary,
   DatasetUploadResult,
 } from "../../shared/types";
@@ -51,18 +53,48 @@ export async function listDatasets(): Promise<DatasetSummary[]> {
   return parseResponse<DatasetSummary[]>(response);
 }
 
-export async function getDatasetDetail(datasetId: string): Promise<DatasetDetail> {
-  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}`, {
+export async function getDatasetDetail(
+  datasetId: string,
+  snapshotId?: string,
+): Promise<DatasetDetail> {
+  const params = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : "";
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}${params}`, {
     cache: "no-store",
   });
   return parseResponse<DatasetDetail>(response);
 }
 
-export async function getDatasetItems(datasetId: string): Promise<DatasetItemList> {
-  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/items`, {
+export async function getDatasetItems(
+  datasetId: string,
+  snapshotId?: string,
+): Promise<DatasetItemList> {
+  const params = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : "";
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/items${params}`, {
     cache: "no-store",
   });
   return parseResponse<DatasetItemList>(response);
+}
+
+export async function getDatasetSnapshots(datasetId: string): Promise<DatasetSnapshotList> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/snapshots`, {
+    cache: "no-store",
+  });
+  return parseResponse<DatasetSnapshotList>(response);
+}
+
+export async function getDatasetDiff(
+  datasetId: string,
+  fromSnapshotId: string,
+  toSnapshotId: string,
+): Promise<DatasetDiff> {
+  const params = new URLSearchParams({
+    from_snapshot: fromSnapshotId,
+    to_snapshot: toSnapshotId,
+  });
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/diff?${params}`, {
+    cache: "no-store",
+  });
+  return parseResponse<DatasetDiff>(response);
 }
 
 export function extractDatasetImportError(error: unknown): DatasetImportError | null {
@@ -102,4 +134,11 @@ export function formatDatasetImportError(error: DatasetImportError): string[] {
   });
 }
 
-export type { DatasetDetail, DatasetItemList, DatasetSummary, DatasetUploadResult };
+export type {
+  DatasetDetail,
+  DatasetDiff,
+  DatasetItemList,
+  DatasetSnapshotList,
+  DatasetSummary,
+  DatasetUploadResult,
+};

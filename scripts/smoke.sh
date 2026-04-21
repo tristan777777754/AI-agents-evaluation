@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase9}"
+PHASE="${1:-phase10}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -28,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase9", health.json()
+    assert health.json()["phase"] == "phase10", health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 9", body
+    assert body["phase"]["current_phase"] == "Phase 10", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -301,6 +301,108 @@ with TestClient(app) as client:
     assert calibration_body["accuracy"] >= 0.7, calibration_body
     assert calibration_body["true_positive_count"] + calibration_body["false_negative_count"] >= 5, calibration_body
     assert calibration_body["true_negative_count"] + calibration_body["false_positive_count"] >= 5, calibration_body
+
+    if os.environ["PHASE"] == "phase9":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    latest_dataset = client.get(f"/api/v1/datasets/{dataset_id}")
+    assert latest_dataset.status_code == 200, latest_dataset.text
+    first_snapshot_id = latest_dataset.json()["snapshot_id"]
+
+    with open("backend/tests/fixtures/dataset_valid.json", "r", encoding="utf-8") as handle:
+        dataset_v2 = json.load(handle)
+
+    dataset_v2["items"][1]["expected_output"] = (
+        "Refunds for annual plans are available within 21 days."
+    )
+    dataset_v2["items"] = [
+        item for item in dataset_v2["items"] if item["dataset_item_id"] != "ds_item_020"
+    ]
+    dataset_v2["items"].append(
+        {
+            "dataset_item_id": "ds_item_021",
+            "input_text": "Can enterprise admins enforce SSO for all members?",
+            "category": "security",
+            "difficulty": "medium",
+            "expected_output": "Yes. Enterprise admins can require SSO enforcement for all members.",
+            "metadata_json": {"source": "phase10"},
+        }
+    )
+    upload_v2 = client.post(
+        "/api/v1/datasets",
+        files={
+            "file": (
+                "dataset_valid.json",
+                json.dumps(dataset_v2).encode("utf-8"),
+                "application/json",
+            )
+        },
+    )
+    assert upload_v2.status_code == 201, upload_v2.text
+    upload_v2_body = upload_v2.json()
+    second_snapshot_id = upload_v2_body["snapshot_id"]
+    assert second_snapshot_id != first_snapshot_id, upload_v2_body
+
+    original_snapshot_items = client.get(
+        f"/api/v1/datasets/{dataset_id}/items",
+        params={"snapshot_id": first_snapshot_id},
+    )
+    assert original_snapshot_items.status_code == 200, original_snapshot_items.text
+    assert any(
+        item["dataset_item_id"] == "ds_item_020"
+        for item in original_snapshot_items.json()["items"]
+    ), original_snapshot_items.json()
+
+    diff = client.get(
+        f"/api/v1/datasets/{dataset_id}/diff",
+        params={
+            "from_snapshot": first_snapshot_id,
+            "to_snapshot": second_snapshot_id,
+        },
+    )
+    assert diff.status_code == 200, diff.text
+    diff_body = diff.json()
+    assert diff_body["added_count"] == 1, diff_body
+    assert diff_body["removed_count"] == 1, diff_body
+    assert diff_body["changed_count"] == 1, diff_body
+
+    baseline_pin = client.post(
+        f"/api/v1/runs/{run_body['run_id']}/baseline",
+        json={"baseline": True},
+    )
+    assert baseline_pin.status_code == 200, baseline_pin.text
+    assert baseline_pin.json()["baseline"] is True, baseline_pin.json()
+
+    lineage_candidate = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+            "experiment_tag": "phase10-smoke",
+            "notes": "Uses the latest immutable dataset snapshot.",
+        },
+    )
+    assert lineage_candidate.status_code == 201, lineage_candidate.text
+    lineage_candidate_body = lineage_candidate.json()
+    assert lineage_candidate_body["dataset_snapshot_id"] == second_snapshot_id, lineage_candidate_body
+
+    governance_compare = client.get(
+        "/api/v1/runs/compare",
+        params={
+            "baseline_run_id": run_body["run_id"],
+            "candidate_run_id": lineage_candidate_body["run_id"],
+        },
+    )
+    assert governance_compare.status_code == 200, governance_compare.text
+    governance_compare_body = governance_compare.json()
+    assert governance_compare_body["lineage"]["baseline"]["dataset_snapshot_id"] == first_snapshot_id, governance_compare_body
+    assert governance_compare_body["lineage"]["candidate"]["dataset_snapshot_id"] == second_snapshot_id, governance_compare_body
+    assert governance_compare_body["lineage"]["baseline"]["baseline"] is True, governance_compare_body
+    assert governance_compare_body["lineage"]["candidate"]["experiment_tag"] == "phase10-smoke", governance_compare_body
 
 print("Backend smoke checks passed.")
 PY
