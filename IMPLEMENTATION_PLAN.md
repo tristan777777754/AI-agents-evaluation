@@ -2,7 +2,7 @@
 
 ## 計畫定位
 
-這份文件是 `Agent Evaluation Workbench` 的執行路線圖。它把原本的六階段執行藍圖轉成適合 coding agent 直接落地的 Markdown 版本。
+這份文件是 `Agent Evaluation Workbench` 的執行路線圖。它把執行藍圖轉成適合 coding agent 直接落地的 Markdown 版本。
 
 搭配文件：
 
@@ -29,6 +29,10 @@
 | P4 | Trace 與單題檢視 | 完整記錄單題執行軌跡 | 可定位單題失敗原因 |
 | P5 | Summary Dashboard | 呈現成功率、延遲、成本與分類表現 | 可從總覽判斷表現優劣 |
 | P6 | 版本比較與 polish | 比較兩次 run，補齊 demo 細節 | 能展示前後版本差異 |
+| P7 | 真實 OpenAI adapter 與 benchmark dataset | 將 compare 訊號建立在真實 provider run 上 | 可用真實 adapter 跑出可觀察差異 |
+| P8 | Reliability 與 harness hardening | 強化 rerun、狀態守衛與可重放驗證 | 中斷後可恢復且 replay 穩定 |
+| P9 | Evaluation quality 與 scorer calibration | 用 golden set 驗證 scorer 可信度 | 可量化 scorer precision / recall |
+| P10 | Dataset governance 與 experiment management | 讓 compare 結論可追溯到快照與實驗設定 | dataset snapshot、lineage、baseline 可追查 |
 
 ## Phase 1: 專案骨架與規格落地
 
@@ -227,6 +231,137 @@
 
 - 這一階段是收斂，不是擴張
 - 所有 polish 都要服務於 demo 與可理解性
+
+## Phase 7: 真實 OpenAI adapter 與 benchmark dataset
+
+### 目標
+
+在不破壞 deterministic test harness 的前提下，接入真實 provider adapter，讓 compare 與 benchmark evidence 不再只依賴 stub world。
+
+### Deliverables
+
+- `OpenAIAgentAdapter`
+- `adapter_type = openai` 的 dispatch path
+- 平台管理的 provider credential 設定
+- 與自然語言輸出相容的 `keyword_overlap` scorer
+- 至少一份可用於真實 compare 的 benchmark dataset
+- 真實 run evidence 與 acceptance report
+
+### Acceptance Criteria
+
+- 設定 provider credential 後可跑出至少一個真實 OpenAI-backed run
+- compare 可對兩個不同 agent version 產生可觀測差異，或明確標記為 inconclusive
+- 既有 CI / unit test 仍可在 `stub` adapter 下獨立通過
+- benchmark dataset 足以支撐 category breakdown 與 compare 檢視
+
+### Non-Goals
+
+- 不移除 stub adapter
+- 不把 CI 綁到外部 API
+- 不引入 LLM-as-judge
+- 不擴張成多模型 benchmark 平台
+
+### 實作重點
+
+- 真實 provider integration 是附加能力，不得破壞 deterministic harness
+- compare 訊號必須來自持久化 task records，而不是臨時計算或人工挑選案例
+
+## Phase 8: Reliability 與 harness hardening
+
+### 目標
+
+讓 run 在中斷、部分失敗與聚合不一致時仍可恢復、重跑與審計。
+
+### Deliverables
+
+- rerun failed / pending tasks 的服務路徑
+- run / task state transition guard
+- run-level aggregation repair utility
+- deterministic replay fixture 與 smoke 驗證
+- acceptance report
+
+### Acceptance Criteria
+
+- rerun 不會重跑已完成 task
+- 非法狀態轉換會被拒絕且不改變既有狀態
+- repair utility 可由 task records 重算 run-level counts
+- replay fixture 在相同 config 下可穩定重現相同 summary 指標
+
+### Non-Goals
+
+- 不重寫 queue 架構
+- 不新增產品面功能
+- 不引入自動 prompt optimization
+
+### 實作重點
+
+- 核心是 recoverability 與 auditability
+- 所有 reliability 機制都必須相容既有 compare / review flow
+
+## Phase 9: Evaluation quality 與 scorer calibration
+
+### 目標
+
+讓 workbench 不只會打分，還能量化這套打分邏輯是否可信。
+
+### Deliverables
+
+- human-labelled golden set
+- calibration runner
+- calibration report schema 與 API
+- calibration summary UI
+- acceptance report
+
+### Acceptance Criteria
+
+- 可產出 precision、recall、accuracy 與 per-category scorer quality 指標
+- golden set 同時覆蓋 pass 與 fail 案例
+- calibration 指標來自真實 scorer 與標記比對，而非硬編碼
+- calibration 流程不改寫既有 run score records
+
+### Non-Goals
+
+- 不做自動 re-score 歷史資料
+- 不做多 scorer tournament
+- 不以即時模型輸出取代人工標記 golden set
+
+### 實作重點
+
+- calibration 是品質保證層，不是另一套 production scoring pipeline
+- 指標重點是可解釋與可追蹤，不是追求漂亮數字
+
+## Phase 10: Dataset governance 與 experiment management
+
+### 目標
+
+補齊 dataset、baseline、compare lineage 的治理層，讓任何比較結論都可追溯到精確快照。
+
+### Deliverables
+
+- immutable dataset snapshots
+- dataset diff API
+- baseline pinning
+- run experiment metadata
+- compare lineage block
+- acceptance report
+
+### Acceptance Criteria
+
+- dataset 重複上傳時會產生新 snapshot，舊 snapshot 仍可讀
+- 可準確列出兩個 dataset snapshots 的 added / removed / changed items
+- compare response 可指出 dataset snapshot、agent version snapshot 與 scorer snapshot
+- baseline run 可在 compare 流程中被穩定辨識
+
+### Non-Goals
+
+- 不做自動資料集生成
+- 不做多租戶治理
+- 不為歷史資料強制 retroactive backfill 全部新欄位
+
+### 實作重點
+
+- governance 重點是 lineage 與 immutability
+- 所有新增 metadata 都必須服務於 compare 可追溯性，而不是抽象平台化
 
 ## 建議的 Agent 工作方式
 

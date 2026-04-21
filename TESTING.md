@@ -35,6 +35,13 @@
 - fixture 產生的 task 數、pass/fail 數、summary 指標在同一份 contract 下必須穩定可重現
 - 除非文件明確允許，smoke path 不得依賴即時外部服務回應差異
 
+### External Integration Rule
+
+- `Phase 1-6` 的預設 smoke path 必須可在無外部 provider credential 下執行
+- 若 `Phase 7` 需要驗證真實 provider adapter，必須將其標記為 integration smoke，並以環境變數顯式啟用
+- integration smoke 不得取代 deterministic smoke；兩者需並存
+- integration smoke 的 acceptance 應驗證「有真實輸出、資料有持久化、compare 有可觀測 signal 或可解釋的 inconclusive evidence」，不得假設外部模型一定產生固定文字
+
 ## Minimum Test Layers
 
 每個 phase 至少要覆蓋以下四層：
@@ -163,6 +170,72 @@
 3. reviewer 可對至少一個 `review_needed` 案例留下 verdict
 4. UI 顯示 improvement 與 regression
 
+### Phase 7
+
+必測：
+
+- real provider adapter dispatch
+- provider credential gating
+- keyword-overlap scorer
+- benchmark dataset coverage
+- stub path regression safety
+
+最小 smoke path：
+
+1. 以 `stub` adapter 跑既有 deterministic smoke，確認 MVP path 未退化
+2. 在明確設定 provider credential 後，執行一條 real adapter integration smoke
+3. 產生兩個真實 run，保存 compare evidence
+4. compare 回傳 improvement / regression，或明確標記為 inconclusive 並附持久化 evidence
+
+### Phase 8
+
+必測：
+
+- rerun failed/pending tasks
+- run / task state transition guard
+- aggregation repair utility
+- deterministic replay fixture
+
+最小 smoke path：
+
+1. 建立一個包含失敗 task 的 run
+2. rerun 僅重跑 failed / pending tasks
+3. 驗證 completed task records 未被覆寫
+4. 用 replay fixture 跑兩次並比對 summary 指標一致
+
+### Phase 9
+
+必測：
+
+- golden set fixture integrity
+- calibration runner
+- calibration report API
+- calibration panel data binding
+
+最小 smoke path：
+
+1. 載入 human-labelled golden set
+2. 執行 calibration runner
+3. 取得 calibration report
+4. 驗證 precision / recall / accuracy 與 confusion-style counts 可由 fixture 重算
+
+### Phase 10
+
+必測：
+
+- dataset snapshot immutability
+- dataset diff accuracy
+- baseline pinning
+- run experiment metadata persistence
+- compare lineage integrity
+
+最小 smoke path：
+
+1. 上傳同一 dataset 的兩個版本
+2. 取得 diff 並驗證 added / removed / changed item counts
+3. 對其中一個 run 標記 baseline
+4. compare 回傳 lineage，包含 dataset、agent version 與 scorer snapshots
+
 ## Acceptance Check Style Guide
 
 所有 acceptance checks 都應寫成以下格式：
@@ -196,11 +269,13 @@
 
 | 檔案 | 用途 |
 |------|------|
-| `dataset_valid.json` | 合法 dataset，含 12-20 筆 items |
+| `dataset_valid.json` | 合法 dataset，MVP 建議 12-20 筆；若兼作 Phase 7 benchmark 可擴到 20+ 筆 |
 | `dataset_invalid.json` | 非法 dataset，含格式錯誤與缺欄位 |
 | `agent_version_v1.json` | agent v1 版本 snapshot |
 | `agent_version_v2.json` | agent v2 版本 snapshot（用於 compare） |
 | `scorer_config.json` | 基本 rule-based scorer config |
+| `replay_manifest.json` | deterministic replay fixture（Phase 8） |
+| `golden_set.json` | human-labelled scorer calibration fixture（Phase 9） |
 
 至少需要：
 
@@ -215,6 +290,13 @@
 - 至少一個 `completed` run
 - 至少一個 `partial_success` run
 - 至少一個 compare baseline/candidate 組合
+
+若進入 `Phase 7-10`，還應補充：
+
+- 一份可供真實 provider integration 使用的 benchmark dataset
+- 一份 deterministic replay manifest
+- 一份 human-labelled golden set
+- 至少一組 dataset snapshot diff fixture 或可重放上傳路徑
 
 ## Suggested Reporting Format
 
@@ -273,7 +355,7 @@ Demo 至少需要以下固定素材：
 
 ### Sample Dataset Requirements
 
-建議 sample dataset 至少有 `12-20` 題，涵蓋：
+建議 sample dataset 至少有 `12-20` 題；若同時承擔 `Phase 7` benchmark，建議擴到 `20+` 題，涵蓋：
 
 - `policy_lookup`
 - `calculation`

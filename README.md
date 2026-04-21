@@ -125,6 +125,11 @@ At a system level, the workbench is expected to include:
 Phase 6 run comparison and review queue workflows are now implemented on top of the Phase 5
 summary dashboard and the Phase 4 trace-backed execution flow.
 
+The formal roadmap now has ten phases:
+
+- `Phase 1-6`: MVP and demo-ready path
+- `Phase 7-10`: post-MVP hardening, calibration, and governance
+
 The repository includes:
 
 - `frontend/`: Next.js + React + TypeScript dataset upload, run launch, trace viewer, summary dashboard, compare, and review surfaces
@@ -133,7 +138,7 @@ The repository includes:
 - `docs/tasks/` and `docs/reports/`: harness artifacts for scoped phase work
 - `scripts/smoke.sh`: minimum smoke entrypoint
 
-The implementation path remains intentionally structured around six phases:
+The implementation path remains intentionally structured around ten phases:
 
 1. Project skeleton and contracts
 2. Dataset management
@@ -141,6 +146,10 @@ The implementation path remains intentionally structured around six phases:
 4. Trace and case detail
 5. Summary dashboard
 6. Run comparison and product polish
+7. Real OpenAI adapter and benchmark dataset
+8. Reliability and harness hardening
+9. Evaluation quality and scorer calibration
+10. Dataset governance and experiment management
 
 ## Phase 1 Deliverables
 
@@ -214,6 +223,15 @@ Delivered in this phase:
 - frontend compare page, homepage compare launcher, review queue page, and task-level review editor
 - Phase 6 tests and `./scripts/smoke.sh phase6`
 
+## Phase 7-10 Direction
+
+After the MVP path is complete, the roadmap continues with four hardening phases:
+
+- Phase 7 adds a real OpenAI-backed adapter, a benchmark dataset, and natural-language-friendly keyword overlap scoring while preserving the deterministic stub path for CI.
+- Phase 8 adds rerun, status transition guards, repair utilities, and replay fixtures so the harness can recover and be audited.
+- Phase 9 adds a golden set, calibration reporting, and scorer-quality visibility so teams can measure whether the scorer agrees with human labels.
+- Phase 10 adds dataset snapshots, diffing, baseline pinning, experiment metadata, and compare lineage so every comparison can be traced to exact inputs and configs.
+
 ## Local Setup
 
 ### Backend
@@ -282,7 +300,7 @@ cd frontend && npm run test
 Smoke:
 
 ```bash
-./scripts/smoke.sh phase4
+./scripts/smoke.sh phase6
 ```
 
 ## Repository Guide

@@ -11,6 +11,12 @@ MVP 預設：
 - 平台管理的 Codex / builder-authenticated configuration
 - 單體應用加背景 worker，而不是微服務
 
+Roadmap 補充：
+
+- `Phase 1-6` 為 MVP 與 demo-ready 主線
+- `Phase 7-10` 為建立在 MVP 之上的 provider integration、harness hardening、calibration、governance 延伸階段
+- 後續 phase 若接入真實模型供應商，仍採平台管理 credential，不改成 BYOK
+
 ## 建議技術堆疊
 
 - Frontend: `Next.js` / `React` + `TypeScript`
@@ -64,6 +70,7 @@ MVP 預設：
 
 - 統一外部 agent 執行介面
 - 避免系統直接耦合特定 framework
+- 封裝 deterministic stub 與真實 provider adapter 的差異
 
 建議介面：
 
@@ -101,6 +108,18 @@ stub adapter 必須：
 - 預設必須支援 deterministic mode，用固定 `seed`、`failure_mode` 或 `failure_map` 控制失敗案例
 - 允許用固定配置製造 `partial_success` 路徑，但不得讓 smoke test 依賴未控制的機率式失敗
 
+#### Phase 7 Real Provider Adapter
+
+Phase 7 起可在不破壞既有 deterministic harness 的前提下，新增真實 provider adapter。
+
+最小規格：
+
+- 放在 `backend/app/adapters/openai_adapter.py`
+- 可被 worker 透過 `adapter_type: "openai"` 選用
+- 使用平台管理的 `OPENAI_API_KEY`
+- 回傳結構必須與 `run_task` contract 相容，不得為真實 adapter 自創另一套 payload
+- CI 與預設 unit test 不得依賴此 adapter；deterministic stub path 必須持續存在
+
 ### 6. Tool Execution Layer
 
 責任：
@@ -131,8 +150,10 @@ MVP 可先支援：
 責任：
 
 - 執行 rule-based scorer
-- 執行 judge-model scorer
+- 執行 keyword-overlap scorer
+- 在需要時執行 judge-model scorer
 - 輸出 structured score object
+- 提供 calibration 所需的 scorer-vs-label comparison inputs
 
 ### 9. Metrics Aggregator
 
@@ -147,6 +168,14 @@ MVP 可先支援：
 
 - 收集低分、judge 不確定、高風險案例
 - 允許 reviewer 補 verdict、failure label、review note
+
+### 11. Calibration Reporter
+
+責任：
+
+- 讀取 golden set 與 scorer 輸出
+- 計算 precision、recall、accuracy 與 per-category quality metrics
+- 保存 calibration summary 供首頁或 dashboard 顯示
 
 ## End-to-End Data Flow
 
@@ -217,6 +246,7 @@ MVP 可先支援：
 - `description`
 - `schema_version`
 - `source_type`
+- `latest_snapshot_id`
 
 ### DatasetItem
 
@@ -244,6 +274,28 @@ MVP 可先支援：
 - `reference_context`
 - `metadata_json`
 
+### DatasetSnapshot
+
+用途：資料集不可變版本快照
+
+核心欄位：
+
+- `dataset_snapshot_id`
+- `dataset_id`
+- `version_number`
+- `checksum`
+- `created_at`
+
+可選欄位：
+
+- `created_by`
+- `source_note`
+
+規則：
+
+- dataset 重複上傳時必須建立新 snapshot，而不是 overwrite 舊內容
+- 舊 snapshot 必須持續可讀，以支援 compare lineage 與歷史重放
+
 ### ScorerConfig
 
 用途：評分設定
@@ -270,6 +322,9 @@ MVP 可先支援：
 - `status`
 - `started_at`
 - `completed_at`
+- `baseline`
+- `experiment_tag`
+- `notes`
 
 建議狀態：
 
@@ -324,9 +379,10 @@ MVP 可先支援：
 - `task_run_id`
 - `correctness`
 - `tool_use`
-- `formatting`
+- `format_compliance`
 - `pass_fail`
 - `review_needed`
+- `scorer_type`
 
 ### Review
 
@@ -344,6 +400,26 @@ MVP 可先支援：
 可選欄位：
 
 - 無
+
+### CalibrationReport
+
+用途：scorer 校準結果報表
+
+核心欄位：
+
+- `calibration_report_id`
+- `scorer_config_id`
+- `dataset_snapshot_id`
+- `precision`
+- `recall`
+- `accuracy`
+- `created_at`
+
+可選欄位：
+
+- `per_category_json`
+- `confusion_matrix_json`
+- `notes`
 
 ## Trace / Result / Run / Dataset 結構重點
 
@@ -407,6 +483,7 @@ MVP 可先支援：
 - `GET /datasets` — 列出所有 datasets
 - `GET /datasets/{id}`
 - `GET /datasets/{id}/items`
+- `GET /datasets/{id}/diff?from_snapshot=&to_snapshot=`
 
 ### Scorer
 
@@ -420,6 +497,8 @@ MVP 可先支援：
 - `GET /runs/{id}`
 - `GET /runs/{id}/summary` — 回傳聚合後的 run summary
 - `GET /runs/{id}/tasks`
+- `POST /runs/{id}/execute`
+- `POST /runs/{id}/rerun`
 
 ### Task / Trace
 
@@ -432,6 +511,10 @@ MVP 可先支援：
 - `POST /reviews`
 - `GET /reviews` — 列出待覆核案例（可篩選 review_needed=true）
 
+### Calibration
+
+- `GET /calibration/latest`
+
 ### `POST /runs` 範例
 
 ```json
@@ -439,6 +522,8 @@ MVP 可先支援：
   "agent_version_id": "av_001",
   "dataset_id": "ds_001",
   "scorer_config_id": "sc_001",
+  "experiment_tag": "prompt-v2-benchmark",
+  "notes": "Phase 10 baseline candidate run",
   "execution_config": {
     "parallelism": 4,
     "max_retries": 1,
@@ -471,6 +556,7 @@ MVP 可先支援：
 ### 評分器類型
 
 - `Rule-based`
+- `Keyword overlap`
 - `Judge model`
 - `Human review`
 
@@ -557,6 +643,26 @@ MVP 可先支援：
 - 完成 run compare、regression view、demo polish
 - 重點是說服力與展示品質，不是功能擴張
 
+### Phase 7
+
+- 接入真實 provider adapter 與 benchmark dataset
+- compare 必須開始支援真實 provider evidence，但 deterministic stub 仍是預設測試基礎
+
+### Phase 8
+
+- 補齊 rerun、state guard、repair utility、replay fixture
+- 核心是 recoverability 與 state consistency
+
+### Phase 9
+
+- 補齊 golden set、calibration runner、calibration report
+- 核心是 scorer quality visibility，而不是取代既有 scoring pipeline
+
+### Phase 10
+
+- 補齊 dataset snapshot、diff、baseline pinning、experiment metadata、compare lineage
+- 核心是 reproducibility 與 governance
+
 ## MVP 邊界
 
 MVP 要做：
@@ -579,6 +685,13 @@ MVP 不做：
 - synthetic dataset generation
 - 複雜工作空間 / 多租戶
 - 完整 A/B testing 平台
+
+Post-MVP `Phase 7-10` 可做：
+
+- 真實 provider adapter integration
+- harness hardening 與 replay
+- scorer calibration
+- dataset governance 與 lineage
 
 ## Implementation Contracts
 
@@ -639,6 +752,7 @@ Optional fields：
 
 - `description: string`
 - `created_at: datetime`
+- `latest_snapshot_id: string`
 
 #### DatasetItem
 
@@ -662,13 +776,33 @@ Rules：
 - 每筆 item 必須至少有 `input_text` 與 `category`
 - 匯入失敗必須回傳 row-level errors
 
+#### DatasetSnapshot
+
+Required fields：
+
+- `dataset_snapshot_id: string`
+- `dataset_id: string`
+- `version_number: string|number`
+- `checksum: string`
+- `created_at: datetime`
+
+Optional fields：
+
+- `created_by: string`
+- `source_note: string`
+
+Rules：
+
+- dataset 重複上傳時必須建立新 snapshot，而不是 overwrite 舊內容
+- 舊 snapshot 必須持續可讀，以支援 compare lineage 與歷史重放
+
 #### ScorerConfig
 
 Required fields：
 
 - `scorer_config_id: string`
 - `name: string`
-- `type: enum(rule_based, judge_model, hybrid)`
+- `type: enum(rule_based, keyword_overlap, judge_model, hybrid)`
 
 Optional fields：
 
@@ -701,6 +835,9 @@ Optional fields：
 - `git_commit_sha: string`
 - `execution_seed: string|number`
 - `runtime_metadata_json: object`
+- `baseline: boolean`
+- `experiment_tag: string`
+- `notes: string`
 
 #### EvalTaskRun
 
@@ -756,6 +893,7 @@ Optional fields：
 - `format_compliance: number`
 - `review_needed: boolean`
 - `judge_reason: string`
+- `scorer_type: string`
 
 #### Review
 
@@ -771,6 +909,24 @@ Optional fields：
 - `reviewer_id: string`
 - `failure_label: string`
 - `note: string`
+
+#### CalibrationReport
+
+Required fields：
+
+- `calibration_report_id: string`
+- `scorer_config_id: string`
+- `dataset_snapshot_id: string`
+- `precision: number`
+- `recall: number`
+- `accuracy: number`
+- `created_at: datetime`
+
+Optional fields：
+
+- `per_category_json: object`
+- `confusion_matrix_json: object`
+- `notes: string`
 
 ### Status Contracts
 
@@ -879,6 +1035,23 @@ MVP default threshold：
 
 實作時不得在未更新文件時任意變更。
 
+#### Keyword Overlap Rule
+
+在 `Phase 7` 導入的 `keyword_overlap` scorer 用於自然語言輸出的最小可用評分：
+
+- 以 `expected_output` 中的關鍵詞或關鍵片語為比對基礎
+- 比對必須大小寫不敏感
+- scorer 必須可在無 judge model 的情況下執行
+- 此 scorer 是 `rule_based` 之外的新 path，不得覆寫既有 canonical score 欄位語義
+
+#### Calibration Rule
+
+在 `Phase 9`，calibration 應比較 scorer 輸出與 human-labelled golden set：
+
+- calibration 結果是獨立報表，不得回寫覆蓋既有 run score
+- golden set 的 label source 必須可追溯
+- precision / recall / accuracy 與 per-category breakdown 必須可由原始 comparison records 重算
+
 ### Summary Contract
 
 每個 run summary 至少包含：
@@ -937,6 +1110,7 @@ compare runs 至少需要：
 - `category_deltas`
 - `improved_cases`
 - `regressed_cases`
+- `lineage`
 
 `regressed_case` 定義：
 
@@ -951,6 +1125,12 @@ compare runs 至少需要：
 - 同一 `dataset_item_id` 才可進入 compare pairing
 
 若 baseline 與 candidate 使用的 `dataset_id` 不同，系統必須拒絕 compare 或明確標記為 non-comparable。
+
+`lineage` 至少應包含：
+
+- baseline / candidate 各自的 `dataset_snapshot_id`
+- baseline / candidate 各自的 `agent_version_id` 或 snapshot hash
+- baseline / candidate 各自的 `scorer_config_id` 或 scorer snapshot reference
 
 ### API Contract Minimums
 

@@ -25,6 +25,13 @@
 - Run comparison
 - 基本 review queue
 
+正式路線分成兩段：
+
+- `Phase 1-6` 為 MVP 與 demo-ready 主線
+- `Phase 7-10` 為建立在已完成 MVP 之上的 post-MVP hardening / governance roadmap
+
+`Phase 7-10` 可以擴充可重現性、真實 adapter、校準與治理能力，但不得推翻前六個 phase 已固定的核心 domain、compare 原則與單租戶前提。
+
 明確不在目前 scope 內的內容：
 
 - Multi-agent orchestration
@@ -57,6 +64,7 @@
 - MVP 使用平台管理的 builder-authenticated configuration
 - 終端使用者在 MVP 不提供自己的 API key
 - 先支援單租戶、內部工具型使用情境
+- 若後續 phase 接入真實模型供應商金鑰，仍屬平台管理設定，不得演變成 BYOK 模式
 
 ## Directory Structure
 
@@ -102,6 +110,9 @@ STORAGE_SECRET_KEY=minioadmin
 # Judge Model (for scorer)
 JUDGE_MODEL_API_KEY=
 JUDGE_MODEL_NAME=<configured-judge-model>
+
+# Post-MVP provider integration
+OPENAI_API_KEY=
 
 # App
 BACKEND_PORT=8000
@@ -171,6 +182,10 @@ FRONTEND_PORT=3000
 4. `Phase 4` Trace 與單題檢視
 5. `Phase 5` Summary Dashboard
 6. `Phase 6` 版本比較與產品 polish
+7. `Phase 7` 真實 OpenAI adapter 與 benchmark dataset
+8. `Phase 8` Reliability 與 harness hardening
+9. `Phase 9` Evaluation quality 與 scorer calibration
+10. `Phase 10` Dataset governance 與 experiment management
 ## Checks Before Moving To Next Phase
 
 每完成一個 phase，至少要跑與記錄以下檢查：
@@ -251,6 +266,32 @@ FRONTEND_PORT=3000
 
 - 重點是 compare、regression、polish、demo path
 - 不要把 polish 當成任意加新功能的藉口
+
+### Phase 7
+
+- 只在 Phase 6 的真實 run / compare 基礎上接入真實 provider adapter
+- 必須保留 deterministic stub adapter，不能讓 CI 與單元測試依賴外部 API
+- 真實 provider credential 只能是平台管理設定，不得引入 BYOK
+- compare 與 dashboard 仍必須基於真實持久化 run，不得用 demo 假訊號補畫面
+
+### Phase 8
+
+- 專注 rerun、state guard、repair utility、可重放 fixture
+- 不得藉 reliability 名義改寫核心 status enum 或 compare 定義
+- deterministic replay 仍然必須靠 stub / fixed fixture，不得改成機率式 smoke
+
+### Phase 9
+
+- 專注 scorer quality、golden set、calibration reporting
+- 不得把 calibration 結果寫回既有 run 的 canonical score schema
+- human-labelled golden set 是校準依據，不得用即時模型輸出反推標籤
+
+### Phase 10
+
+- 專注 dataset snapshot、diff、baseline pin、experiment metadata、lineage
+- dataset versioning 必須保證舊 snapshot 可讀，不得以 overwrite 破壞 compare 可追溯性
+- compare lineage 應補充既有 compare response，而不是破壞既有欄位語義
+- 不得引入多租戶權限模型或超出單租戶前提的治理系統
 
 ## Definition Of Done
 

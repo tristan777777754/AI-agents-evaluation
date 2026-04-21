@@ -78,6 +78,17 @@ MVP 中的 review queue 定位為：
 - 使用者能透過 trace 找到主要 failure mode
 - 使用者不需要再逐題手動 ad-hoc 測試 agent
 
+## Post-MVP 路線
+
+在 `Phase 1-6` 完成 MVP 與 demo-ready 路徑後，後續 `Phase 7-10` 的正式延伸方向是：
+
+- 接入真實 provider adapter，讓 compare 建立在真實 run evidence 上
+- 強化 rerun、replay、state guard 與 repair utility，提升 harness 穩定性
+- 用 golden set 與 calibration report 驗證 scorer quality
+- 導入 dataset snapshot、baseline 與 lineage，讓 compare 結論可追溯
+
+這些延伸 phase 的定位是 hardening 與 governance，不是擴張產品邊界。
+
 ## 一句話總結
 
 這個專案不是要做出更酷的 agent，而是要做一個讓 agent 可以被系統化驗證、比較、追蹤與持續迭代的品質工作台。
