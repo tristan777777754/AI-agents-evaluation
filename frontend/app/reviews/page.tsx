@@ -31,7 +31,7 @@ export default async function ReviewsPage() {
           boxShadow: "var(--shadow)",
         }}
       >
-        <p style={{ margin: 0, color: "var(--muted)" }}>Phase 6 persisted reviewer workflow</p>
+        <p style={{ margin: 0, color: "var(--muted)" }}>Phase 7 persisted reviewer workflow</p>
         <h1 style={{ margin: 0 }}>Review Queue</h1>
         <p style={{ margin: 0, color: "var(--muted)" }}>
           Review-needed task runs stay backed by real score and trace records. Open any case to

@@ -6,7 +6,7 @@ import { ReviewQueuePanel } from "@/components/review-queue-panel";
 import { RunDashboard } from "@/components/run-dashboard";
 import { RunLauncherForm } from "@/components/run-launcher-form";
 import { RunList } from "@/components/run-list";
-import { phase1ContractPreview } from "@/lib/contracts";
+import { getContractSnapshot, phase1ContractPreview } from "@/lib/contracts";
 import { listDatasets, type DatasetSummary } from "@/lib/datasets";
 import {
   getRegistry,
@@ -30,6 +30,7 @@ export default async function HomePage() {
   let dashboardLoadError: string | null = null;
   let reviewQueue: ReviewQueue | null = null;
   let reviewQueueLoadError: string | null = null;
+  let contractSnapshot = phase1ContractPreview;
 
   try {
     [datasets, runs, registry] = await Promise.all([listDatasets(), listRuns(), getRegistry()]);
@@ -43,6 +44,12 @@ export default async function HomePage() {
   } catch (error) {
     reviewQueueLoadError =
       error instanceof Error ? error.message : "Review queue could not be loaded.";
+  }
+
+  try {
+    contractSnapshot = await getContractSnapshot();
+  } catch {
+    contractSnapshot = phase1ContractPreview;
   }
 
   if (!datasetLoadError && runs.length > 0) {
@@ -90,13 +97,13 @@ export default async function HomePage() {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 6 adds run comparison and persisted reviewer verdicts on top of the existing
-          dashboard: compare two real runs, inspect regressions, and route flagged cases into a
-          review queue without fake data.
+          Phase 7 extends the workbench with a real OpenAI-backed adapter path, keyword-overlap
+          scoring for natural-language outputs, and benchmark evidence that still preserves the
+          deterministic stub harness.
         </p>
       </section>
 
-      <ContractSummary contract={phase1ContractPreview} backendBaseUrl={backendBaseUrl} />
+      <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
 
       <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
 

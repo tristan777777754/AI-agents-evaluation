@@ -1,19 +1,21 @@
 import type { PhaseContractSnapshot } from "../../shared/types";
 
+const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://localhost:8000";
+
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 6",
+    current_phase: "Phase 7",
     scope: [
-      "run comparison backed by persisted task results",
-      "review queue workflow backed by persisted review records",
-      "compare and review UI backed by real API data",
-      "main demo path polish",
+      "real OpenAI-backed adapter path alongside the deterministic stub harness",
+      "keyword-overlap scoring for natural-language outputs",
+      "benchmark dataset coverage for real compare evidence",
+      "integration smoke gated by explicit provider credentials",
     ],
     non_goals: [
-      "new scoring systems",
-      "multi-run analytics beyond pairwise compare",
-      "collaborative review assignment workflows",
-      "fake dashboard or compare data",
+      "removing the stub adapter",
+      "binding CI or unit tests to external APIs",
+      "LLM-as-judge scoring",
+      "multi-model benchmark platform expansion",
     ],
   },
   run_statuses: [
@@ -87,3 +89,15 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
     review: ["review_id", "task_run_id", "reviewer_id", "verdict", "failure_label", "note"],
   },
 };
+
+export async function getContractSnapshot(): Promise<PhaseContractSnapshot> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/meta/contracts`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Contracts request failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as PhaseContractSnapshot;
+}

@@ -57,7 +57,7 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
           <h2 style={{ margin: "0.35rem 0 0" }}>Need two persisted runs</h2>
         </div>
         <p style={{ margin: 0, color: "var(--muted)" }}>
-          Launch at least two real runs before opening the Phase 6 compare view.
+          Launch at least two persisted runs before opening the compare view.
         </p>
       </section>
     );
