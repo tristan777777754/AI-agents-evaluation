@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.adapters import StubAgentAdapter
+from app.adapters import OpenAIAgentAdapter, StubAgentAdapter
 from app.config import settings
 from app.models import DatasetRecord, EvalRunRecord, EvalTaskRunRecord, ScoreRecord, TraceRecord
 from app.schemas.contracts import EvalRunSchema, FailureReason, RunStatus, TraceSummarySchema
@@ -21,9 +22,13 @@ from app.schemas.runs import (
 from app.services.registry import get_agent_version, get_scorer_config
 
 
-def _build_adapter(adapter_type: str) -> StubAgentAdapter:
+def _build_adapter(adapter_type: str) -> StubAgentAdapter | OpenAIAgentAdapter:
     if adapter_type == "stub":
         return StubAgentAdapter()
+    if adapter_type == "openai":
+        if not settings.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required for adapter_type 'openai'.")
+        return OpenAIAgentAdapter()
     raise ValueError(f"Unsupported adapter_type: {adapter_type}")
 
 
@@ -156,6 +161,7 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
 
     agent_version = get_agent_version(payload.agent_version_id)
     scorer_config = get_scorer_config(payload.scorer_config_id)
+    _build_adapter(payload.adapter_type)
 
     dataset_items = list(dataset.items)
     run_id = f"run_{uuid4().hex[:12]}"
@@ -240,13 +246,11 @@ def _classify_failure(
     ):
         return FailureReason.format_error
 
+    if termination_reason == FailureReason.answer_incorrect.value:
+        return FailureReason.answer_incorrect
+
     if error_message:
         return FailureReason.execution_failed
-
-    expected = (task_run.expected_output or "").strip()
-    actual = (task_run.final_output or "").strip()
-    if expected and actual and expected != actual:
-        return FailureReason.answer_incorrect
 
     return None
 
@@ -261,6 +265,46 @@ def _score_for_failure(failure_reason: FailureReason | None) -> tuple[float, flo
     if failure_reason is FailureReason.format_error:
         return 0.0, 1.0, 0.0, False
     return 0.0, 0.0, 0.0, False
+
+
+def _significant_tokens(text: str) -> list[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) >= 3 or token.isdigit()
+    ]
+
+
+def _keyword_overlap_score(expected_output: str | None, final_output: str | None) -> float:
+    if not expected_output or not final_output:
+        return 0.0
+
+    expected_tokens = _significant_tokens(expected_output)
+    if not expected_tokens:
+        return 0.0
+
+    actual_text = final_output.lower()
+    matched_tokens = sum(1 for token in expected_tokens if token in actual_text)
+    return round(matched_tokens / len(expected_tokens), 2)
+
+
+def _score_task(
+    *,
+    scorer_type: str,
+    failure_reason: FailureReason | None,
+    expected_output: str | None,
+    final_output: str | None,
+    pass_threshold: float,
+) -> tuple[float, float, float, bool]:
+    if failure_reason is not None:
+        return _score_for_failure(failure_reason)
+
+    if scorer_type == "keyword_overlap":
+        correctness = _keyword_overlap_score(expected_output, final_output)
+        pass_fail = correctness >= pass_threshold
+        return correctness, 1.0, 1.0, pass_fail
+
+    return _score_for_failure(failure_reason)
 
 
 def execute_run(session: Session, run_id: str) -> RunDetailSchema:
@@ -290,11 +334,16 @@ def execute_run(session: Session, run_id: str) -> RunDetailSchema:
         task_run.started_at = datetime.now(UTC)
         session.commit()
 
-        adapter_config = dict(run.adapter_config_json)
+        agent_version_config = run.agent_version_snapshot_json.get("config_json", {})
+        adapter_config = (
+            dict(agent_version_config) if isinstance(agent_version_config, dict) else {}
+        )
+        adapter_config.update(run.adapter_config_json)
         adapter_config.update(
             {
                 "dataset_item_id": task_run.dataset_item_id,
                 "expected_output": task_run.expected_output,
+                "model": run.agent_version_snapshot_json.get("model"),
             }
         )
         result = adapter.run_task(task_run.input_text, adapter_config)
@@ -323,18 +372,34 @@ def execute_run(session: Session, run_id: str) -> RunDetailSchema:
             termination_reason=task_run.termination_reason,
             events=trace_events,
         )
-        task_succeeded = failure_reason is None
-        task_run.status = RunStatus.completed.value if task_succeeded else RunStatus.failed.value
         score = task_run.score or ScoreRecord(
             score_id=f"score_{task_run.task_run_id}",
             task_run_id=task_run.task_run_id,
         )
-        correctness, tool_use, formatting, pass_fail = _score_for_failure(failure_reason)
+        scorer_type = str(run.scorer_config_snapshot_json.get("type", "rule_based"))
+        threshold_config = run.scorer_config_snapshot_json.get("thresholds_json", {})
+        pass_threshold_raw = (
+            threshold_config.get("pass_fail") if isinstance(threshold_config, dict) else 0.7
+        )
+        pass_threshold = (
+            float(pass_threshold_raw) if isinstance(pass_threshold_raw, int | float) else 0.7
+        )
+        correctness, tool_use, formatting, pass_fail = _score_task(
+            scorer_type=scorer_type,
+            failure_reason=failure_reason,
+            expected_output=task_run.expected_output,
+            final_output=task_run.final_output,
+            pass_threshold=pass_threshold,
+        )
+        if failure_reason is None and not pass_fail:
+            failure_reason = FailureReason.answer_incorrect
+        task_succeeded = failure_reason is None
+        task_run.status = RunStatus.completed.value if task_succeeded else RunStatus.failed.value
         score.correctness = correctness
         score.tool_use = tool_use
         score.formatting = formatting
         score.pass_fail = pass_fail
-        score.review_needed = failure_reason is not None
+        score.review_needed = failure_reason is not None or not pass_fail
         session.add(score)
 
         trace_record = task_run.trace or TraceRecord(

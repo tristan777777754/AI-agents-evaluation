@@ -43,6 +43,6 @@ def root() -> dict[str, str]:
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "phase": "phase6",
+        "phase": settings.current_phase,
         "docs_path": "/docs",
     }

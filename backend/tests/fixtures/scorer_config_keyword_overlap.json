@@ -1,0 +1,13 @@
+{
+  "scorer_config_id": "sc_keyword_overlap_v1",
+  "name": "Keyword Overlap Support QA",
+  "type": "keyword_overlap",
+  "weights_json": {
+    "correctness": 0.8,
+    "tool_use": 0.1,
+    "formatting": 0.1
+  },
+  "thresholds_json": {
+    "pass_fail": 0.8
+  }
+}

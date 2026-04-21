@@ -8,6 +8,7 @@ from os import getenv
 class Settings:
     app_name: str = "Agent Evaluation Workbench API"
     app_version: str = "0.1.0"
+    current_phase: str = "phase7"
     api_prefix: str = "/api/v1"
     backend_port: int = int(getenv("BACKEND_PORT", "8000"))
     frontend_origin: str = getenv("FRONTEND_ORIGIN", "http://localhost:3000")
@@ -27,6 +28,7 @@ class Settings:
     }
     storage_endpoint_url: str = getenv("STORAGE_ENDPOINT_URL", "http://localhost:9000")
     storage_bucket: str = getenv("STORAGE_BUCKET", "eval-traces")
+    openai_api_key: str = getenv("OPENAI_API_KEY", "")
 
 
 settings = Settings()

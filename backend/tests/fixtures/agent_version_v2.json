@@ -2,11 +2,14 @@
   "agent_version_id": "av_support_qa_v2",
   "agent_id": "agent_support_qa",
   "version_name": "v2",
-  "model": "codex-latest",
+  "model": "gpt-4.1-mini",
   "prompt_hash": "sha256:v2-demo-hash",
   "config_json": {
-    "adapter_type": "stub",
+    "adapter_type": "openai",
+    "system_prompt": "You are a support QA assistant. Answer with the exact policy facts, include the critical number or condition, and stay concise.",
     "tool_allowlist": ["document_lookup", "calculator"],
+    "temperature": 0,
+    "max_output_tokens": 180,
     "timeout_seconds": 90
   }
 }

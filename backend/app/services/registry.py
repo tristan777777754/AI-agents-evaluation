@@ -24,7 +24,10 @@ def list_agent_versions() -> list[AgentVersionSchema]:
 
 @lru_cache(maxsize=1)
 def list_scorer_configs() -> list[ScorerConfigSchema]:
-    return [ScorerConfigSchema.model_validate(_read_fixture("scorer_config.json"))]
+    return [
+        ScorerConfigSchema.model_validate(_read_fixture("scorer_config.json")),
+        ScorerConfigSchema.model_validate(_read_fixture("scorer_config_keyword_overlap.json")),
+    ]
 
 
 def get_agent_version(agent_version_id: str) -> AgentVersionSchema:

@@ -67,12 +67,12 @@ def test_compare_api_returns_improvements_and_regressions(client: TestClient) ->
     body = response.json()
     assert body["baseline_run_id"] == baseline_run_id
     assert body["candidate_run_id"] == candidate_run_id
-    assert body["compared_task_count"] == 12
+    assert body["compared_task_count"] == 20
     assert body["improvement_count"] == 2
     assert body["regression_count"] == 1
-    assert body["success_rate"]["baseline"] == 83.33
-    assert body["success_rate"]["candidate"] == 91.67
-    assert body["success_rate"]["delta"] == 8.34
+    assert body["success_rate"]["baseline"] == 90.0
+    assert body["success_rate"]["candidate"] == 95.0
+    assert body["success_rate"]["delta"] == 5.0
     assert {item["dataset_item_id"] for item in body["improvements"]} == {
         "ds_item_003",
         "ds_item_005",

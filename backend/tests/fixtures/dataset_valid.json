@@ -1,7 +1,7 @@
 {
   "dataset_id": "dataset_support_faq_v1",
   "name": "Support FAQ Eval Set",
-  "description": "Deterministic fixture for the tool-using QA agent demo path.",
+  "description": "Benchmark fixture for deterministic smoke and real-provider compare coverage.",
   "schema_version": "1.0",
   "source_type": "fixture",
   "items": [
@@ -99,6 +99,70 @@
       "category": "calculator_total",
       "difficulty": "medium",
       "expected_output": "The total is 44 dollars.",
+      "metadata_json": { "tool_expectation": "calculator" }
+    },
+    {
+      "dataset_item_id": "ds_item_013",
+      "input_text": "Can workspace owners transfer billing ownership?",
+      "category": "billing_update",
+      "difficulty": "medium",
+      "expected_output": "Workspace owners can transfer billing ownership to another owner.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_014",
+      "input_text": "How long are deleted projects recoverable?",
+      "category": "account_access",
+      "difficulty": "medium",
+      "expected_output": "Deleted projects can be recovered within 14 days.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_015",
+      "input_text": "Are weekend support responses offered on the starter plan?",
+      "category": "support_hours",
+      "difficulty": "medium",
+      "expected_output": "Starter plans do not include weekend support responses.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_016",
+      "input_text": "Can admins enforce single sign-on for all users?",
+      "category": "account_security",
+      "difficulty": "medium",
+      "expected_output": "Single sign-on enforcement is available on enterprise plans.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_017",
+      "input_text": "Where do teams download signed DPAs?",
+      "category": "policy_lookup",
+      "difficulty": "hard",
+      "expected_output": "Signed DPAs can be downloaded from the trust center.",
+      "metadata_json": { "tool_expectation": "document_lookup" }
+    },
+    {
+      "dataset_item_id": "ds_item_018",
+      "input_text": "Can prorated credits be applied when upgrading mid-cycle?",
+      "category": "plan_change",
+      "difficulty": "hard",
+      "expected_output": "Prorated credits are automatically applied during mid-cycle upgrades.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_019",
+      "input_text": "Do audit log exports include IP addresses?",
+      "category": "admin_features",
+      "difficulty": "hard",
+      "expected_output": "Audit log exports include actor, timestamp, and IP address fields.",
+      "metadata_json": { "locale": "en-US" }
+    },
+    {
+      "dataset_item_id": "ds_item_020",
+      "input_text": "What is the invoice total for two 30-dollar seats and a 15-dollar setup fee?",
+      "category": "calculator_total",
+      "difficulty": "medium",
+      "expected_output": "The total is 75 dollars.",
       "metadata_json": { "tool_expectation": "calculator" }
     }
   ]

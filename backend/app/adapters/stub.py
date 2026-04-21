@@ -146,7 +146,7 @@ class StubAgentAdapter:
             "latency_ms": 120,
             "token_usage": {"prompt": 100, "completion": 50},
             "cost": 0.001,
-            "termination_reason": "completed",
+            "termination_reason": "answer_incorrect" if should_answer_incorrect else "completed",
             "error": None,
             "trace_events": trace_events,
         }

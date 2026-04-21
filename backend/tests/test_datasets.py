@@ -19,7 +19,7 @@ def test_upload_valid_json_dataset_persists_records(client: TestClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["dataset"]["dataset_id"] == "dataset_support_faq_v1"
-    assert body["dataset"]["item_count"] == 12
+    assert body["dataset"]["item_count"] == 20
     assert len(body["preview_items"]) == 5
 
     dataset_list = client.get("/api/v1/datasets")
@@ -28,7 +28,7 @@ def test_upload_valid_json_dataset_persists_records(client: TestClient) -> None:
 
     items = client.get("/api/v1/datasets/dataset_support_faq_v1/items")
     assert items.status_code == 200
-    assert items.json()["total_count"] == 12
+    assert items.json()["total_count"] == 20
 
 
 def test_upload_invalid_json_dataset_returns_row_errors(client: TestClient) -> None:

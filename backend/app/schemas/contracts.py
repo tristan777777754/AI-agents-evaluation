@@ -28,7 +28,7 @@ class SourceType(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 6"
+    current_phase: str = "Phase 7"
     scope: list[str]
     non_goals: list[str]
 
@@ -139,16 +139,16 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "run comparison backed by persisted task results",
-                    "review queue workflow backed by persisted review records",
-                    "compare and review UI backed by real API data",
-                    "main demo path polish",
+                    "real OpenAI-backed adapter path alongside the deterministic stub harness",
+                    "keyword-overlap scoring for natural-language outputs",
+                    "benchmark dataset coverage for real compare evidence",
+                    "integration smoke gated by explicit provider credentials",
                 ],
                 non_goals=[
-                    "new scoring systems",
-                    "multi-run analytics beyond pairwise compare",
-                    "collaborative review assignment workflows",
-                    "fake dashboard or compare data",
+                    "removing the stub adapter",
+                    "binding CI or unit tests to external APIs",
+                    "LLM-as-judge scoring",
+                    "multi-model benchmark platform expansion",
                 ],
             ),
             run_statuses=list(RunStatus),

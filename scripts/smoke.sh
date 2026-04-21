@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase6}"
+PHASE="${1:-phase7}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -18,6 +18,8 @@ if [[ -x "$ROOT_DIR/backend/.venv/bin/python" ]]; then
 fi
 
 "$PYTHON_BIN" - <<'PY'
+import os
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -26,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase6", health.json()
+    assert health.json()["phase"] == "phase7", health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 6", body
+    assert body["phase"]["current_phase"] == "Phase 7", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -47,7 +49,7 @@ with TestClient(app) as client:
     assert upload.status_code == 201, upload.text
     upload_body = upload.json()
     dataset_id = upload_body["dataset"]["dataset_id"]
-    assert upload_body["dataset"]["item_count"] == 12, upload_body
+    assert upload_body["dataset"]["item_count"] == 20, upload_body
 
     dataset_list = client.get("/api/v1/datasets")
     assert dataset_list.status_code == 200, dataset_list.text
@@ -55,7 +57,7 @@ with TestClient(app) as client:
 
     items = client.get(f"/api/v1/datasets/{dataset_id}/items")
     assert items.status_code == 200, items.text
-    assert items.json()["total_count"] == 12, items.json()
+    assert items.json()["total_count"] == 20, items.json()
 
     if __import__("os").environ["PHASE"] == "phase2":
         print("Backend smoke checks passed.")
@@ -67,12 +69,13 @@ with TestClient(app) as client:
     assert registry_body["agent_versions"], registry_body
     assert registry_body["scorer_configs"], registry_body
 
+    scorer_by_id = {item["scorer_config_id"]: item for item in registry_body["scorer_configs"]}
     run = client.post(
         "/api/v1/runs",
         json={
             "dataset_id": dataset_id,
-            "agent_version_id": registry_body["agent_versions"][0]["agent_version_id"],
-            "scorer_config_id": registry_body["scorer_configs"][0]["scorer_config_id"],
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
             "adapter_type": "stub",
             "adapter_config": {"failure_map": {"ds_item_003": True}},
         },
@@ -84,7 +87,7 @@ with TestClient(app) as client:
 
     task_results = client.get(f"/api/v1/runs/{run_body['run_id']}/tasks")
     assert task_results.status_code == 200, task_results.text
-    assert task_results.json()["total_count"] == 12, task_results.json()
+    assert task_results.json()["total_count"] == 20, task_results.json()
 
     if __import__("os").environ["PHASE"] == "phase3":
         print("Backend smoke checks passed.")
@@ -114,7 +117,7 @@ with TestClient(app) as client:
     assert summary_detail.status_code == 200, summary_detail.text
     summary_body = summary_detail.json()
     assert summary_body["failed_tasks"] == 1, summary_body
-    assert summary_body["success_rate"] == 91.67, summary_body
+    assert summary_body["success_rate"] == 95.0, summary_body
     assert summary_body["failed_cases"][0]["task_run_id"] == failed_task["task_run_id"], summary_body
 
     if __import__("os").environ["PHASE"] == "phase5":
@@ -125,8 +128,8 @@ with TestClient(app) as client:
         "/api/v1/runs",
         json={
             "dataset_id": dataset_id,
-            "agent_version_id": registry_body["agent_versions"][1]["agent_version_id"],
-            "scorer_config_id": registry_body["scorer_configs"][0]["scorer_config_id"],
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_rule_based_v1",
             "adapter_type": "stub",
             "adapter_config": {},
         },
@@ -169,6 +172,77 @@ with TestClient(app) as client:
     reviewed_task = client.get(f"/api/v1/task-runs/{failed_task['task_run_id']}")
     assert reviewed_task.status_code == 200, reviewed_task.text
     assert reviewed_task.json()["review"]["note"] == "Smoke review persisted.", reviewed_task.json()
+
+    if os.environ["PHASE"] == "phase6":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    run_openai_integration = (
+        os.environ.get("RUN_OPENAI_INTEGRATION_SMOKE", "").lower() in {"1", "true", "yes"}
+    )
+    openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not run_openai_integration:
+        print("Backend smoke checks passed. OpenAI integration smoke skipped.")
+        raise SystemExit(0)
+
+    assert openai_api_key, "OPENAI_API_KEY is required when RUN_OPENAI_INTEGRATION_SMOKE=1."
+    assert "sc_keyword_overlap_v1" in scorer_by_id, scorer_by_id
+
+    openai_v1 = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_keyword_overlap_v1",
+            "adapter_type": "openai",
+            "adapter_config": {},
+        },
+    )
+    assert openai_v1.status_code == 201, openai_v1.text
+    openai_v1_body = openai_v1.json()
+    assert openai_v1_body["adapter_type"] == "openai", openai_v1_body
+    assert openai_v1_body["status"] in {"completed", "partial_success"}, openai_v1_body
+
+    openai_v2 = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_keyword_overlap_v1",
+            "adapter_type": "openai",
+            "adapter_config": {},
+        },
+    )
+    assert openai_v2.status_code == 201, openai_v2.text
+    openai_v2_body = openai_v2.json()
+    assert openai_v2_body["adapter_type"] == "openai", openai_v2_body
+    assert openai_v2_body["status"] in {"completed", "partial_success"}, openai_v2_body
+
+    openai_compare = client.get(
+        "/api/v1/runs/compare",
+        params={
+            "baseline_run_id": openai_v1_body["run_id"],
+            "candidate_run_id": openai_v2_body["run_id"],
+        },
+    )
+    assert openai_compare.status_code == 200, openai_compare.text
+    compare_body = openai_compare.json()
+
+    baseline_tasks = client.get(f"/api/v1/runs/{openai_v1_body['run_id']}/tasks")
+    candidate_tasks = client.get(f"/api/v1/runs/{openai_v2_body['run_id']}/tasks")
+    assert baseline_tasks.status_code == 200, baseline_tasks.text
+    assert candidate_tasks.status_code == 200, candidate_tasks.text
+    baseline_items = baseline_tasks.json()["items"]
+    candidate_items = candidate_tasks.json()["items"]
+    assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in baseline_items), baseline_items
+    assert any(item["final_output"] and not item["final_output"].startswith("[stub]") for item in candidate_items), candidate_items
+
+    if compare_body["improvement_count"] == 0 and compare_body["regression_count"] == 0:
+        assert compare_body["compared_task_count"] == 20, compare_body
+        assert len(baseline_items) == 20, baseline_items
+        assert len(candidate_items) == 20, candidate_items
+        print("Backend smoke checks passed. OpenAI compare result was inconclusive with persisted evidence.")
+        raise SystemExit(0)
 
 print("Backend smoke checks passed.")
 PY

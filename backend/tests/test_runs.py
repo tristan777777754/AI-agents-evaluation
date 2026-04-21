@@ -29,7 +29,10 @@ def test_registry_lists_fixture_backed_agent_versions_and_scorers(client: TestCl
         "av_support_qa_v1",
         "av_support_qa_v2",
     }
-    assert body["scorer_configs"][0]["scorer_config_id"] == "sc_rule_based_v1"
+    assert {item["scorer_config_id"] for item in body["scorer_configs"]} == {
+        "sc_rule_based_v1",
+        "sc_keyword_overlap_v1",
+    }
 
 
 def test_create_run_persists_completed_task_results(client: TestClient) -> None:
@@ -49,15 +52,15 @@ def test_create_run_persists_completed_task_results(client: TestClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["status"] == "completed"
-    assert body["total_tasks"] == 12
-    assert body["completed_tasks"] == 12
+    assert body["total_tasks"] == 20
+    assert body["completed_tasks"] == 20
     assert body["failed_tasks"] == 0
 
     run_id = body["run_id"]
     task_response = client.get(f"/api/v1/runs/{run_id}/tasks")
     assert task_response.status_code == 200
     tasks = task_response.json()
-    assert tasks["total_count"] == 12
+    assert tasks["total_count"] == 20
     assert all(item["status"] == "completed" for item in tasks["items"])
     assert all(item["score"]["pass_fail"] is True for item in tasks["items"])
 
@@ -79,7 +82,7 @@ def test_create_run_isolates_task_failures_into_partial_success(client: TestClie
     assert response.status_code == 201
     body = response.json()
     assert body["status"] == "partial_success"
-    assert body["completed_tasks"] == 10
+    assert body["completed_tasks"] == 18
     assert body["failed_tasks"] == 2
 
     run_id = body["run_id"]
@@ -115,13 +118,13 @@ def test_run_summary_aggregates_real_metrics_and_failed_cases(client: TestClient
     assert summary_response.status_code == 200
     body = summary_response.json()
     assert body["run_id"] == run_id
-    assert body["total_tasks"] == 12
-    assert body["successful_tasks"] == 8
+    assert body["total_tasks"] == 20
+    assert body["successful_tasks"] == 16
     assert body["failed_tasks"] == 4
     assert body["review_needed_count"] == 4
-    assert body["success_rate"] == 66.67
+    assert body["success_rate"] == 80.0
     assert body["average_latency_ms"] == 120.0
-    assert body["total_cost"] == 0.0108
+    assert body["total_cost"] == 0.0188
     assert {item["failure_reason"] for item in body["failed_cases"]} == {
         "execution_failed",
         "answer_incorrect",
@@ -170,6 +173,82 @@ def test_create_run_rejects_unsupported_adapter_type(client: TestClient) -> None
     )
 
     assert response.status_code == 422
+
+
+def test_create_run_rejects_openai_adapter_without_provider_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _upload_dataset(client)
+    monkeypatch.setattr(
+        "app.services.runs._build_adapter",
+        lambda _: (_ for _ in ()).throw(
+            ValueError("OPENAI_API_KEY is required for adapter_type 'openai'.")
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": "dataset_support_faq_v1",
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_keyword_overlap_v1",
+            "adapter_type": "openai",
+            "adapter_config": {},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "OPENAI_API_KEY" in response.json()["detail"]
+
+
+def test_keyword_overlap_scorer_accepts_natural_language_match(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _upload_dataset(client)
+
+    class NaturalLanguageAdapter:
+        def run_task(self, input_text: str, config: dict[str, object]) -> dict[str, object]:
+            if config["dataset_item_id"] == "ds_item_001":
+                output = "Annual plans can be refunded within 30 days under the refund policy."
+            else:
+                output = str(config["expected_output"])
+            return {
+                "final_output": output,
+                "latency_ms": 95,
+                "token_usage": {"prompt": 24, "completion": 18},
+                "cost": 0.0,
+                "termination_reason": "completed",
+                "error": None,
+                "trace_events": [
+                    {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                    {"step_index": 1, "event_type": "final_output", "output": output},
+                ],
+            }
+
+    monkeypatch.setattr("app.services.runs._build_adapter", lambda _: NaturalLanguageAdapter())
+    response = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": "dataset_support_faq_v1",
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_keyword_overlap_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+
+    assert response.status_code == 201
+    run_id = response.json()["run_id"]
+
+    task_response = client.get(f"/api/v1/runs/{run_id}/tasks")
+    assert task_response.status_code == 200
+    target_task = next(
+        item for item in task_response.json()["items"] if item["dataset_item_id"] == "ds_item_001"
+    )
+    assert target_task["score"]["correctness"] >= 0.8
+    assert target_task["score"]["pass_fail"] is True
 
 
 def test_celery_fallback_requires_eager_mode(monkeypatch: pytest.MonkeyPatch) -> None:

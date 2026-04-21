@@ -2,11 +2,14 @@
   "agent_version_id": "av_support_qa_v1",
   "agent_id": "agent_support_qa",
   "version_name": "v1",
-  "model": "codex-latest",
+  "model": "gpt-4.1-mini",
   "prompt_hash": "sha256:v1-demo-hash",
   "config_json": {
-    "adapter_type": "stub",
+    "adapter_type": "openai",
+    "system_prompt": "You are a support QA assistant. Answer briefly and avoid extra explanation.",
     "tool_allowlist": ["document_lookup", "calculator"],
+    "temperature": 0,
+    "max_output_tokens": 180,
     "timeout_seconds": 90
   }
 }

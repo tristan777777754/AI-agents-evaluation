@@ -18,7 +18,7 @@ class RunCreateRequestSchema(BaseModel):
     dataset_id: str
     agent_version_id: str
     scorer_config_id: str
-    adapter_type: Literal["stub"] = "stub"
+    adapter_type: Literal["stub", "openai"] = "stub"
     adapter_config: dict[str, object] = Field(default_factory=dict)
 
 

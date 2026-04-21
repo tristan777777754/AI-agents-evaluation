@@ -25,7 +25,7 @@ def test_dataset_item_requires_input_text_and_category() -> None:
 def test_phase_contract_snapshot_contains_core_entities() -> None:
     snapshot = PhaseContractSnapshot.build_default()
 
-    assert snapshot.phase.current_phase == "Phase 6"
+    assert snapshot.phase.current_phase == "Phase 7"
     assert "eval_run" in snapshot.entities
     assert RunStatus.partial_success in snapshot.run_statuses
 
