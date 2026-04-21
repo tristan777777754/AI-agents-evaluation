@@ -2,18 +2,18 @@ import type { PhaseContractSnapshot } from "../../shared/types";
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 1",
+    current_phase: "Phase 6",
     scope: [
-      "repo skeleton",
-      "canonical backend schemas",
-      "shared TypeScript contracts",
-      "minimum frontend and backend health surfaces",
+      "run comparison backed by persisted task results",
+      "review queue workflow backed by persisted review records",
+      "compare and review UI backed by real API data",
+      "main demo path polish",
     ],
     non_goals: [
-      "dataset upload workflow",
-      "evaluation run engine",
-      "trace viewer",
-      "dashboard and compare features",
+      "new scoring systems",
+      "multi-run analytics beyond pairwise compare",
+      "collaborative review assignment workflows",
+      "fake dashboard or compare data",
     ],
   },
   run_statuses: [
@@ -47,6 +47,14 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "reference_context",
       "metadata_json",
     ],
+    scorer_config: [
+      "scorer_config_id",
+      "name",
+      "type",
+      "weights_json",
+      "judge_model",
+      "thresholds_json",
+    ],
     eval_run: [
       "run_id",
       "agent_version_id",
@@ -56,5 +64,26 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "started_at",
       "completed_at",
     ],
+    eval_task_run: [
+      "task_run_id",
+      "run_id",
+      "dataset_item_id",
+      "status",
+      "final_output",
+      "latency_ms",
+      "token_usage",
+      "cost",
+    ],
+    trace: ["trace_id", "task_run_id", "step_count", "tool_count", "error_flag", "storage_path"],
+    score: [
+      "score_id",
+      "task_run_id",
+      "correctness",
+      "tool_use",
+      "formatting",
+      "pass_fail",
+      "review_needed",
+    ],
+    review: ["review_id", "task_run_id", "reviewer_id", "verdict", "failure_label", "note"],
   },
 };

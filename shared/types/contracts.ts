@@ -6,10 +6,16 @@ export type RunStatus =
   | "cancelled"
   | "partial_success";
 
+export type FailureReason =
+  | "answer_incorrect"
+  | "tool_error"
+  | "format_error"
+  | "execution_failed";
+
 export type SourceType = "json" | "csv" | "fixture";
 
 export type PhaseMarker = {
-  current_phase: "Phase 1";
+  current_phase: string;
   scope: string[];
   non_goals: string[];
 };

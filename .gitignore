@@ -8,6 +8,7 @@
 __pycache__/
 *.pyc
 backend/.venv/
+backend/tests/*.db
 *.egg-info/
 frontend/.next/
 frontend/node_modules/

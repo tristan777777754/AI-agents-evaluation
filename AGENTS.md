@@ -35,6 +35,8 @@
 - 完整商業化 billing
 - 複雜 RBAC / enterprise-grade 權限系統
 - 以 fake data 支撐 dashboard 或 compare 頁面
+- 直接監控 production live traffic 的 agent 行為本身
+- 自動修 agent、代替人工做 release 決策的 autonomous optimizer
 
 ## Tech Assumptions
 
@@ -84,7 +86,7 @@ Phase 1 必須建立 `.env.example`，包含以下所有變數。實際值放 `.
 
 ```
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/eval_workbench
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/eval_workbench
 
 # Redis / Celery
 REDIS_URL=redis://localhost:6379/0
@@ -117,6 +119,12 @@ FRONTEND_PORT=3000
 - 若某個需求跨 phase，先完成當前 phase 所需的最小 contract，再把延伸內容留到後續 phase
 - 每次任務輸入必須遵循 [TASK_TEMPLATE.md](/Users/tristan/AI-agents-evaluation/TASK_TEMPLATE.md) 中的 task template
 
+### Repository Workflow
+
+- 每完成一次 update，預設要自動 commit 並 push 到 GitHub `origin`
+- 若工作樹中所有變更都屬於當前任務範圍，push 前不需要再次詢問使用者
+- 若變更內容混入明顯無關或風險不明的修改，才允許停止並回報
+
 ### Contract Discipline
 
 - 優先保證 shared schema、API contract、資料流正確
@@ -136,8 +144,7 @@ FRONTEND_PORT=3000
 - 單題失敗不得拖垮整個 run
 - 所有 summary / compare 數字都必須來自真實 run result 聚合
 - UI 可以簡潔，但資料流與狀態流轉必須完整
-- 每個 `eval_run` 必須保留足夠的 snapshot 與 metadata，以支援 rerun、compare 與歷史結果重現
-- 若某設計會破壞歷史 run 的可重現性，視為錯誤方向
+- 每個 `eval_run` 必須保留足夠的 metadata，以支援 compare 與歷史結果追蹤
 
 ### Files And Areas That Must Not Be Changed Casually
 
@@ -164,7 +171,6 @@ FRONTEND_PORT=3000
 4. `Phase 4` Trace 與單題檢視
 5. `Phase 5` Summary Dashboard
 6. `Phase 6` 版本比較與產品 polish
-
 ## Checks Before Moving To Next Phase
 
 每完成一個 phase，至少要跑與記錄以下檢查：
@@ -199,7 +205,7 @@ FRONTEND_PORT=3000
 - 驗收結果
 - 尚未做的內容
 - 下一個 phase 的前置條件是否已滿足
-- 本 phase 新增或更新的 harness artifacts（例如 fixture、schema snapshot、smoke script、migration、acceptance report）
+- 本 phase 新增或更新的驗收產物（例如 fixture、schema snapshot、smoke script、migration、acceptance report）
 
 若本次工作涉及 demo path，還必須確認是否符合 [TESTING.md](/Users/tristan/AI-agents-evaluation/TESTING.md) 中的 demo specification。
 

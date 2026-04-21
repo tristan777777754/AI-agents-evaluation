@@ -308,6 +308,12 @@ MVP 可先支援：
 - `error_flag`
 - `storage_path`
 
+可選欄位：
+
+- `payload_checksum`
+- `payload_size_bytes`
+- `storage_backend`
+
 ### Score
 
 用途：單題評分結果
@@ -334,6 +340,10 @@ MVP 可先支援：
 - `verdict`
 - `failure_label`
 - `note`
+
+可選欄位：
+
+- 無
 
 ## Trace / Result / Run / Dataset 結構重點
 
@@ -487,6 +497,7 @@ MVP 可先支援：
 - adapter interface 必須模組化
 - 資料模型必須可擴充 scorer、tool、agent type
 - 目標是 10 分鐘內完成一次 run 的建立與查看
+- summary 與 compare 的結論必須可追溯到真實 run evidence
 
 ## Security And Access Control
 
@@ -513,7 +524,6 @@ MVP 可先支援：
 - 對 transient error 做有限次 retry
 - judge model 失敗時允許降級到 rule-based 結果並標記 `review_needed`
 - 前端需透明顯示 `failed`、`partial`、`retrying`
-- run 應可從未完成 task 續跑，而不是全批重來
 
 ## Phase-By-Phase Implementation Notes
 
@@ -940,7 +950,7 @@ compare runs 至少需要：
 - 或 candidate `overall_score` 高於 baseline 至少 `0.2`
 - 同一 `dataset_item_id` 才可進入 compare pairing
 
-若 baseline 與 candidate 的 dataset snapshot 不同，系統必須拒絕 compare 或明確標記為 non-comparable。
+若 baseline 與 candidate 使用的 `dataset_id` 不同，系統必須拒絕 compare 或明確標記為 non-comparable。
 
 ### API Contract Minimums
 

@@ -1,19 +1,16 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-client = TestClient(app)
-
-
-def test_root_endpoint_exposes_phase_marker() -> None:
+def test_root_endpoint_exposes_phase_marker(client: TestClient) -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json()["phase"] == "phase1"
+    assert response.json()["phase"] == "phase6"
 
 
-def test_health_endpoint_reports_service_status() -> None:
+def test_health_endpoint_reports_service_status(client: TestClient) -> None:
     response = client.get("/api/v1/meta/health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["phase"] == "phase6"

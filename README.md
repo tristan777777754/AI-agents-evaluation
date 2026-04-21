@@ -122,12 +122,13 @@ At a system level, the workbench is expected to include:
 
 ## Current Status
 
-Phase 1 is now scaffolded.
+Phase 6 run comparison and review queue workflows are now implemented on top of the Phase 5
+summary dashboard and the Phase 4 trace-backed execution flow.
 
 The repository includes:
 
-- `frontend/`: Next.js + React + TypeScript skeleton
-- `backend/`: FastAPI skeleton and canonical Phase 1 schemas
+- `frontend/`: Next.js + React + TypeScript dataset upload, run launch, trace viewer, summary dashboard, compare, and review surfaces
+- `backend/`: FastAPI dataset, run, task trace, compare, and review APIs plus SQLAlchemy-backed persistence
 - `shared/`: shared TypeScript contract mirrors aligned to backend schemas
 - `docs/tasks/` and `docs/reports/`: harness artifacts for scoped phase work
 - `scripts/smoke.sh`: minimum smoke entrypoint
@@ -143,16 +144,75 @@ The implementation path remains intentionally structured around six phases:
 
 ## Phase 1 Deliverables
 
-Phase 1 only covers structure and contracts. It intentionally does not implement dataset upload, run execution, trace viewing, dashboard aggregation, or compare workflows.
-
-Delivered in this phase:
-
 - required top-level repository skeleton
 - canonical backend contract definitions in `backend/app/schemas/contracts.py`
 - shared TypeScript contract mirror in `shared/types/contracts.ts`
 - minimum frontend homepage and frontend health route
 - minimum backend root route plus `/api/v1/meta/health` and `/api/v1/meta/contracts`
 - `.env.example`, `docker-compose.yml`, fixture placeholders, and acceptance artifacts
+
+## Phase 2 Deliverables
+
+Phase 2 adds the first real product workflow and keeps the later phases intentionally untouched.
+
+Delivered in this phase:
+
+- SQLAlchemy-backed `dataset` and `dataset_item` persistence
+- `POST /api/v1/datasets` with JSON and CSV import support
+- `GET /api/v1/datasets`, `GET /api/v1/datasets/{id}`, and `GET /api/v1/datasets/{id}/items`
+- server-side row validation with structured import errors
+- frontend dataset upload, list, and preview pages backed by real API data
+- Phase 2 tests and `./scripts/smoke.sh phase2`
+
+## Phase 3 Deliverables
+
+Phase 3 adds the first executable evaluation loop while keeping trace, summary, compare, and review flows deferred.
+
+Delivered in this phase:
+
+- SQLAlchemy-backed `eval_run`, `eval_task_run`, and `score` persistence
+- `POST /api/v1/runs`, `GET /api/v1/runs`, `GET /api/v1/runs/{id}`, and `GET /api/v1/runs/{id}/tasks`
+- deterministic stub adapter in `backend/app/adapters/stub.py`
+- Celery-backed execution path with eager local/test mode
+- fixture-backed `GET /api/v1/registry` for available `agent_version` and `scorer_config`
+- frontend run launcher and run detail pages backed by real API data
+- Phase 3 tests and `./scripts/smoke.sh phase3`
+
+## Phase 4 Deliverables
+
+Phase 4 adds real trace persistence and case-level inspection while keeping summary, compare, and review flows deferred.
+
+Delivered in this phase:
+
+- SQLAlchemy-backed `trace` persistence linked to `eval_task_run`
+- deterministic trace event and failure-reason persistence during run execution
+- `GET /api/v1/task-runs/{id}` and `GET /api/v1/task-runs/{id}/trace`
+- frontend task detail and trace viewer pages backed by real API data
+- Phase 4 tests and `./scripts/smoke.sh phase4`
+
+## Phase 5 Deliverables
+
+Phase 5 adds a real run-backed summary dashboard while keeping compare and review flows deferred.
+
+Delivered in this phase:
+
+- `GET /api/v1/runs/{id}/summary` backed by persisted task, score, and trace records
+- success rate, average latency, total cost, review-needed count, and category breakdown aggregation
+- failure breakdown plus failed-case navigation links into the existing trace viewer
+- homepage dashboard wired to the latest persisted run without fake data
+- Phase 5 tests and `./scripts/smoke.sh phase5`
+
+## Phase 6 Deliverables
+
+Phase 6 adds persisted run comparison and review workflows while polishing the main demo path.
+
+Delivered in this phase:
+
+- `GET /api/v1/runs/compare` backed by persisted run, task, score, and trace rows
+- improvement and regression case detection across two real runs over the same dataset
+- persisted `review` records plus `GET /api/v1/reviews/queue` and `PUT /api/v1/task-runs/{id}/review`
+- frontend compare page, homepage compare launcher, review queue page, and task-level review editor
+- Phase 6 tests and `./scripts/smoke.sh phase6`
 
 ## Local Setup
 
@@ -222,7 +282,7 @@ cd frontend && npm run test
 Smoke:
 
 ```bash
-./scripts/smoke.sh phase1
+./scripts/smoke.sh phase4
 ```
 
 ## Repository Guide

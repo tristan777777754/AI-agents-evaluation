@@ -14,6 +14,13 @@ class RunStatus(str, Enum):
     partial_success = "partial_success"
 
 
+class FailureReason(str, Enum):
+    answer_incorrect = "answer_incorrect"
+    tool_error = "tool_error"
+    format_error = "format_error"
+    execution_failed = "execution_failed"
+
+
 class SourceType(str, Enum):
     json = "json"
     csv = "csv"
@@ -21,7 +28,7 @@ class SourceType(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 1"
+    current_phase: str = "Phase 6"
     scope: list[str]
     non_goals: list[str]
 
@@ -132,16 +139,16 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "repo skeleton",
-                    "canonical backend schemas",
-                    "shared TypeScript contracts",
-                    "minimum frontend and backend health surfaces",
+                    "run comparison backed by persisted task results",
+                    "review queue workflow backed by persisted review records",
+                    "compare and review UI backed by real API data",
+                    "main demo path polish",
                 ],
                 non_goals=[
-                    "dataset upload workflow",
-                    "evaluation run engine",
-                    "trace viewer",
-                    "dashboard and compare features",
+                    "new scoring systems",
+                    "multi-run analytics beyond pairwise compare",
+                    "collaborative review assignment workflows",
+                    "fake dashboard or compare data",
                 ],
             ),
             run_statuses=list(RunStatus),
