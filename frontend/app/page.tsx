@@ -1,3 +1,4 @@
+import { CalibrationPanel } from "@/components/calibration-panel";
 import { CompareLauncherForm } from "@/components/compare-launcher-form";
 import { ContractSummary } from "@/components/contract-summary";
 import { DatasetList } from "@/components/dataset-list";
@@ -6,6 +7,7 @@ import { ReviewQueuePanel } from "@/components/review-queue-panel";
 import { RunDashboard } from "@/components/run-dashboard";
 import { RunLauncherForm } from "@/components/run-launcher-form";
 import { RunList } from "@/components/run-list";
+import { getLatestCalibrationReport, type CalibrationReport } from "@/lib/calibration";
 import { getContractSnapshot, phase1ContractPreview } from "@/lib/contracts";
 import { listDatasets, type DatasetSummary } from "@/lib/datasets";
 import {
@@ -30,6 +32,8 @@ export default async function HomePage() {
   let dashboardLoadError: string | null = null;
   let reviewQueue: ReviewQueue | null = null;
   let reviewQueueLoadError: string | null = null;
+  let calibrationReport: CalibrationReport | null = null;
+  let calibrationLoadError: string | null = null;
   let contractSnapshot = phase1ContractPreview;
 
   try {
@@ -44,6 +48,13 @@ export default async function HomePage() {
   } catch (error) {
     reviewQueueLoadError =
       error instanceof Error ? error.message : "Review queue could not be loaded.";
+  }
+
+  try {
+    calibrationReport = await getLatestCalibrationReport();
+  } catch (error) {
+    calibrationLoadError =
+      error instanceof Error ? error.message : "Calibration metrics could not be loaded.";
   }
 
   try {
@@ -97,13 +108,15 @@ export default async function HomePage() {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 7 extends the workbench with a real OpenAI-backed adapter path, keyword-overlap
-          scoring for natural-language outputs, and benchmark evidence that still preserves the
-          deterministic stub harness.
+          Phase 9 adds scorer calibration on top of the hardened harness, using a human-labelled
+          golden set so teams can measure whether automatic pass/fail decisions align with review
+          expectations before trusting compare results.
         </p>
       </section>
 
       <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
+
+      <CalibrationPanel report={calibrationReport} loadError={calibrationLoadError} />
 
       <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
 

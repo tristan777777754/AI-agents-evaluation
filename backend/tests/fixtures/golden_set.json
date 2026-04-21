@@ -1,0 +1,169 @@
+{
+  "dataset_id": "golden_set_support_faq_v1",
+  "name": "Golden Set Support FAQ",
+  "description": "Human-labelled calibration fixture for scorer verification.",
+  "schema_version": "1.0",
+  "source_type": "fixture",
+  "scorer_config_id": "sc_keyword_overlap_v1",
+  "items": [
+    {
+      "dataset_item_id": "golden_item_001",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "What is the refund policy for annual plans?",
+      "category": "refund_policy",
+      "difficulty": "easy",
+      "expected_output": "Annual plans can be refunded within 30 days.",
+      "metadata_json": {
+        "candidate_output": "Annual plans can be refunded within 30 days under the policy.",
+        "expected_verdict": "pass",
+        "expected_failure_reason": null
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_002",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Can I change the billing email after checkout?",
+      "category": "billing_update",
+      "difficulty": "easy",
+      "expected_output": "Yes, billing email can be updated in account settings.",
+      "metadata_json": {
+        "candidate_output": "Yes, the billing email can be updated in account settings after checkout.",
+        "expected_verdict": "pass",
+        "expected_failure_reason": null
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_003",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Where can enterprise users find the data retention policy?",
+      "category": "policy_lookup",
+      "difficulty": "medium",
+      "expected_output": "Enterprise users can find it in the policy center knowledge base.",
+      "metadata_json": {
+        "candidate_output": "Enterprise users can find the data retention policy in the policy center knowledge base.",
+        "expected_verdict": "pass",
+        "expected_failure_reason": null
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_004",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "What is the total for three 12-dollar add-ons and one 8-dollar fee?",
+      "category": "calculator_total",
+      "difficulty": "medium",
+      "expected_output": "The total is 44 dollars.",
+      "metadata_json": {
+        "candidate_output": "The total is 44 dollars.",
+        "expected_verdict": "pass",
+        "expected_failure_reason": null
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_005",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Can admins enforce single sign-on for all users?",
+      "category": "account_security",
+      "difficulty": "medium",
+      "expected_output": "Single sign-on enforcement is available on enterprise plans.",
+      "metadata_json": {
+        "candidate_output": "Single sign-on enforcement is available on enterprise plans for all users.",
+        "expected_verdict": "pass",
+        "expected_failure_reason": null
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_006",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "How long are deleted projects recoverable?",
+      "category": "account_access",
+      "difficulty": "medium",
+      "expected_output": "Deleted projects can be recovered within 14 days.",
+      "metadata_json": {
+        "candidate_output": "Deleted projects are gone permanently and cannot be recovered.",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "answer_incorrect"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_007",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Do audit log exports include IP addresses?",
+      "category": "admin_features",
+      "difficulty": "hard",
+      "expected_output": "Audit log exports include actor, timestamp, and IP address fields.",
+      "metadata_json": {
+        "candidate_output": "Audit exports only include timestamps.",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "answer_incorrect"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_008",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Does the policy mention refunds for add-on seats?",
+      "category": "refund_policy",
+      "difficulty": "medium",
+      "expected_output": "Add-on seats are non-refundable after activation.",
+      "metadata_json": {
+        "candidate_output": null,
+        "actual_failure_reason": "tool_error",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "tool_error"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_009",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "What support hours apply during regional holidays?",
+      "category": "support_hours",
+      "difficulty": "medium",
+      "expected_output": "Holiday support hours follow the published regional support calendar.",
+      "metadata_json": {
+        "candidate_output": "{ \"answer\": \"holiday hours vary\" }",
+        "actual_failure_reason": "format_error",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "format_error"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_010",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Where do teams download signed DPAs?",
+      "category": "policy_lookup",
+      "difficulty": "hard",
+      "expected_output": "Signed DPAs can be downloaded from the trust center.",
+      "metadata_json": {
+        "candidate_output": null,
+        "actual_failure_reason": "execution_failed",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "execution_failed"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_011",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Can users downgrade from annual to monthly mid-cycle?",
+      "category": "plan_change",
+      "difficulty": "medium",
+      "expected_output": "Downgrades take effect at the next renewal date.",
+      "metadata_json": {
+        "candidate_output": "Downgrades happen immediately with a refund.",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "answer_incorrect"
+      }
+    },
+    {
+      "dataset_item_id": "golden_item_012",
+      "dataset_id": "golden_set_support_faq_v1",
+      "input_text": "Can finance teams get invoices in PDF format?",
+      "category": "billing_documents",
+      "difficulty": "easy",
+      "expected_output": "Invoices are available as PDFs in the billing portal.",
+      "metadata_json": {
+        "candidate_output": "Invoices are not available as PDFs.",
+        "expected_verdict": "fail",
+        "expected_failure_reason": "answer_incorrect"
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase7}"
+PHASE="${1:-phase9}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -28,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase7", health.json()
+    assert health.json()["phase"] == "phase9", health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 7", body
+    assert body["phase"]["current_phase"] == "Phase 9", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -286,6 +286,21 @@ with TestClient(app) as client:
         )
         assert actual_row["success_rate"] == expected_row["success_rate"], actual_row
         assert actual_row["failed_tasks"] == expected_row["failed_tasks"], actual_row
+
+    if os.environ["PHASE"] == "phase8":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    calibration = client.get("/api/v1/calibration/latest")
+    assert calibration.status_code == 200, calibration.text
+    calibration_body = calibration.json()
+    assert calibration_body["fixture_id"] == "golden_set_support_faq_v1", calibration_body
+    assert calibration_body["scorer_config_id"] == "sc_keyword_overlap_v1", calibration_body
+    assert calibration_body["precision"] >= 0.7, calibration_body
+    assert calibration_body["recall"] >= 0.7, calibration_body
+    assert calibration_body["accuracy"] >= 0.7, calibration_body
+    assert calibration_body["true_positive_count"] + calibration_body["false_negative_count"] >= 5, calibration_body
+    assert calibration_body["true_negative_count"] + calibration_body["false_positive_count"] >= 5, calibration_body
 
 print("Backend smoke checks passed.")
 PY

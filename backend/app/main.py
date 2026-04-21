@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.calibration import router as calibration_router
 from app.api.datasets import router as dataset_router
 from app.api.registry import router as registry_router
 from app.api.reviews import router as review_router
@@ -36,6 +37,11 @@ app.include_router(dataset_router, prefix=f"{settings.api_prefix}/datasets", tag
 app.include_router(run_router, prefix=f"{settings.api_prefix}/runs", tags=["runs"])
 app.include_router(task_run_router, prefix=f"{settings.api_prefix}/task-runs", tags=["task-runs"])
 app.include_router(review_router, prefix=f"{settings.api_prefix}/reviews", tags=["reviews"])
+app.include_router(
+    calibration_router,
+    prefix=f"{settings.api_prefix}/calibration",
+    tags=["calibration"],
+)
 
 
 @app.get("/")
