@@ -1,7 +1,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from os import getenv
+from os import environ, getenv
+from pathlib import Path
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in environ:
+            continue
+        environ[key] = value.strip()
+
+
+def _load_local_env_files() -> None:
+    backend_dir = Path(__file__).resolve().parents[1]
+    repo_root = backend_dir.parent
+    for candidate in (repo_root / ".env", backend_dir / ".env"):
+        _load_env_file(candidate)
+
+
+_load_local_env_files()
 
 
 @dataclass(frozen=True)
