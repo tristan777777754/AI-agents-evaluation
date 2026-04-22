@@ -32,6 +32,8 @@ def test_registry_lists_fixture_backed_agent_versions_and_scorers(client: TestCl
     assert {item["scorer_config_id"] for item in body["scorer_configs"]} == {
         "sc_rule_based_v1",
         "sc_keyword_overlap_v1",
+        "sc_llm_judge_v1",
+        "sc_rubric_based_v1",
     }
 
 

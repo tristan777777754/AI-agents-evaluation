@@ -1,0 +1,15 @@
+{
+  "scorer_config_id": "sc_rubric_based_v1",
+  "name": "Rubric Based Support QA",
+  "type": "rubric_based",
+  "weights_json": {
+    "correctness": 0.8,
+    "tool_use": 0.1,
+    "formatting": 0.1
+  },
+  "judge_model": "claude-3-5-sonnet",
+  "judge_provider": "anthropic",
+  "thresholds_json": {
+    "pass_fail": 0.75
+  }
+}

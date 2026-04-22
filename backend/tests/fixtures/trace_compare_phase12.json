@@ -1,0 +1,80 @@
+{
+  "regression_case": {
+    "dataset_item_id": "ds_item_006",
+    "baseline_steps": [
+      {
+        "step_index": 0,
+        "event_type": "agent_start",
+        "input": "Where can enterprise users find the data retention policy?"
+      },
+      {
+        "step_index": 1,
+        "event_type": "final_output",
+        "output": "Enterprise users can find it in the policy center knowledge base."
+      }
+    ],
+    "candidate_steps": [
+      {
+        "step_index": 0,
+        "event_type": "agent_start",
+        "input": "Where can enterprise users find the data retention policy?"
+      },
+      {
+        "step_index": 1,
+        "event_type": "tool_call",
+        "tool_name": "document_lookup",
+        "status": "completed"
+      },
+      {
+        "step_index": 2,
+        "event_type": "tool_call",
+        "tool_name": "document_lookup",
+        "status": "completed"
+      },
+      {
+        "step_index": 3,
+        "event_type": "final_output",
+        "output": "Enterprise users can find it in the policy center knowledge base."
+      }
+    ]
+  },
+  "improvement_case": {
+    "dataset_item_id": "ds_item_007",
+    "baseline_steps": [
+      {
+        "step_index": 0,
+        "event_type": "agent_start",
+        "input": "What support hours apply during regional holidays?"
+      },
+      {
+        "step_index": 1,
+        "event_type": "tool_call",
+        "tool_name": "document_lookup",
+        "status": "completed"
+      },
+      {
+        "step_index": 2,
+        "event_type": "tool_call",
+        "tool_name": "document_lookup",
+        "status": "completed"
+      },
+      {
+        "step_index": 3,
+        "event_type": "final_output",
+        "output": "Holiday support hours follow the published regional support calendar."
+      }
+    ],
+    "candidate_steps": [
+      {
+        "step_index": 0,
+        "event_type": "agent_start",
+        "input": "What support hours apply during regional holidays?"
+      },
+      {
+        "step_index": 1,
+        "event_type": "final_output",
+        "output": "Holiday support hours follow the published regional support calendar."
+      }
+    ]
+  }
+}

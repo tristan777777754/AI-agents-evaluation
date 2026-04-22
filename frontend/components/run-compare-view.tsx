@@ -1,9 +1,12 @@
 import Link from "next/link";
 
-import type { RunComparison } from "@/lib/runs";
+import type { RunComparison, TraceComparison } from "@/lib/runs";
+import { TraceComparePanel } from "@/components/trace-compare-panel";
 
 type RunCompareViewProps = {
   comparison: RunComparison;
+  selectedDatasetItemId?: string | null;
+  traceComparison?: TraceComparison | null;
 };
 
 function metricLabel(value: number | null, suffix = ""): string {
@@ -22,7 +25,26 @@ function deltaLabel(value: number | null, invert = false): string {
   return `${sign}${adjusted}`;
 }
 
-export function RunCompareView({ comparison }: RunCompareViewProps) {
+function credibilityLabel(label: string): string {
+  switch (label) {
+    case "statistically_significant_improvement":
+      return "Statistically significant improvement";
+    case "statistically_significant_regression":
+      return "Statistically significant regression";
+    case "directional_improvement":
+      return "Directional improvement";
+    case "directional_regression":
+      return "Directional regression";
+    default:
+      return "Inconclusive";
+  }
+}
+
+export function RunCompareView({
+  comparison,
+  selectedDatasetItemId,
+  traceComparison,
+}: RunCompareViewProps) {
   const metrics = [
     {
       label: "Success rate delta",
@@ -49,6 +71,7 @@ export function RunCompareView({ comparison }: RunCompareViewProps) {
       delta: deltaLabel(comparison.review_needed_count.delta, true),
     },
   ];
+  const traceCases = [...comparison.regressions, ...comparison.improvements];
 
   return (
     <section style={{ display: "grid", gap: "1.5rem" }}>
@@ -86,6 +109,31 @@ export function RunCompareView({ comparison }: RunCompareViewProps) {
           Compared {comparison.compared_task_count} shared tasks · {comparison.improvement_count} improvements ·{" "}
           {comparison.regression_count} regressions
         </p>
+
+        <section
+          style={{
+            display: "grid",
+            gap: "0.75rem",
+            padding: "1rem",
+            borderRadius: "18px",
+            border: "1px solid var(--border)",
+            background: "rgba(255,255,255,0.72)",
+          }}
+        >
+          <strong>{credibilityLabel(comparison.credibility.label)}</strong>
+          <span style={{ color: "var(--muted)" }}>
+            Sample size {comparison.sample_size} · p-value{" "}
+            {comparison.p_value == null ? "N/A" : comparison.p_value.toFixed(4)} · 95% CI{" "}
+            {comparison.confidence_interval.lower == null || comparison.confidence_interval.upper == null
+              ? "N/A"
+              : `${comparison.confidence_interval.lower} to ${comparison.confidence_interval.upper} pp`}
+          </span>
+          <span style={{ color: "var(--muted)" }}>
+            {comparison.is_significant
+              ? "This pair clears the current significance threshold."
+              : "Positive deltas without significance stay directional rather than confirmed."}
+          </span>
+        </section>
 
         <section
           style={{
@@ -295,6 +343,80 @@ export function RunCompareView({ comparison }: RunCompareViewProps) {
             )}
           </section>
         </div>
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gap: "1rem",
+        }}
+      >
+        <section
+          style={{
+            display: "grid",
+            gap: "0.75rem",
+            padding: "1.5rem",
+            borderRadius: "24px",
+            border: "1px solid var(--border)",
+            background: "var(--panel)",
+            boxShadow: "var(--shadow)",
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Trace Compare
+            </p>
+            <h3 style={{ margin: "0.35rem 0 0" }}>Side-by-side path evidence</h3>
+          </div>
+          {traceCases.length === 0 ? (
+            <p style={{ margin: 0, color: "var(--muted)" }}>
+              No improvement or regression cases are available for trace comparison.
+            </p>
+          ) : (
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              {traceCases.map((item) => (
+                <Link
+                  key={`trace-case-${item.dataset_item_id}`}
+                  href={`/compare?baseline_run_id=${comparison.baseline_run_id}&candidate_run_id=${comparison.candidate_run_id}&dataset_item_id=${item.dataset_item_id}`}
+                  style={{
+                    padding: "0.7rem 0.9rem",
+                    borderRadius: "999px",
+                    border: "1px solid var(--border)",
+                    background:
+                      selectedDatasetItemId === item.dataset_item_id
+                        ? "rgba(235, 122, 55, 0.16)"
+                        : "rgba(255,255,255,0.72)",
+                    color: "inherit",
+                    textDecoration: "none",
+                  }}
+                >
+                  {item.dataset_item_id}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {traceComparison ? (
+          <TraceComparePanel traceComparison={traceComparison} />
+        ) : traceCases.length > 0 ? (
+          <section
+            style={{
+              display: "grid",
+              gap: "0.75rem",
+              padding: "1.5rem",
+              borderRadius: "24px",
+              border: "1px solid var(--border)",
+              background: "var(--panel)",
+              boxShadow: "var(--shadow)",
+            }}
+          >
+            <strong>Trace comparison unavailable</strong>
+            <p style={{ margin: 0, color: "var(--muted)" }}>
+              Select a case chip above to inspect baseline and candidate trace paths side by side.
+            </p>
+          </section>
+        ) : null}
       </section>
     </section>
   );

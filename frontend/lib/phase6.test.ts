@@ -12,12 +12,23 @@ describe("phase 6 compare and review contracts", () => {
       baseline_status: "partial_success",
       candidate_status: "completed",
       compared_task_count: 12,
+      sample_size: 12,
       improvement_count: 2,
       regression_count: 1,
+      confidence_interval: { lower: -2.1, upper: 18.8 },
+      p_value: 0.14,
+      is_significant: false,
       success_rate: { baseline: 83.33, candidate: 91.67, delta: 8.34 },
       average_latency_ms: { baseline: 120, candidate: 118, delta: -2 },
       total_cost: { baseline: 0.011, candidate: 0.0105, delta: -0.0005 },
       review_needed_count: { baseline: 2, candidate: 1, delta: -1 },
+      credibility: {
+        label: "directional_improvement",
+        sample_size: 12,
+        confidence_interval: { lower: -2.1, upper: 18.8 },
+        p_value: 0.14,
+        is_significant: false,
+      },
       lineage: {
         baseline: {
           run_id: "run_v1",
@@ -74,6 +85,7 @@ describe("phase 6 compare and review contracts", () => {
     expect(comparison.improvement_count).toBe(2);
     expect(comparison.category_deltas[0]?.success_rate_delta).toBe(33.33);
     expect(comparison.lineage.baseline.dataset_snapshot_id).toContain("snapshot_001");
+    expect(comparison.credibility.label).toBe("directional_improvement");
   });
 
   it("supports review queue items with persisted verdicts", () => {

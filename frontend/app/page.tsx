@@ -108,9 +108,9 @@ export default async function HomePage() {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 10 adds governance on top of calibrated scoring: immutable dataset snapshots,
-          baseline pinning, experiment metadata, and compare lineage so every regression or
-          improvement can be traced back to exact persisted inputs and configs.
+          Phase 11 adds credibility signals on top of calibrated scoring: judge-backed and
+          rubric-backed scoring, significance-aware compare, and release-facing labels that
+          distinguish directional movement from statistically defensible change.
         </p>
       </section>
 

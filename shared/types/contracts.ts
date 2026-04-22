@@ -73,6 +73,7 @@ export type ScorerConfig = {
   type: string;
   weights_json: Record<string, number>;
   judge_model: string | null;
+  judge_provider: string | null;
   thresholds_json: Record<string, number>;
 };
 
@@ -118,6 +119,7 @@ export type Score = {
   formatting: number | null;
   pass_fail: boolean;
   review_needed: boolean;
+  evidence_json: Record<string, unknown> | null;
 };
 
 export type Review = {

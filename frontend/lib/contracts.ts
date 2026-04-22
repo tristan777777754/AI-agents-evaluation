@@ -4,18 +4,18 @@ const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://local
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 10",
+    current_phase: "Phase 11",
     scope: [
-      "immutable dataset snapshots with readable historical versions",
-      "dataset diffing, baseline pinning, and run experiment metadata",
-      "compare lineage that exposes dataset, agent-version, and scorer snapshots",
-      "governance metadata that improves reproducibility without fake data",
+      "judge-backed and rubric-backed scorer paths with additive evidence payloads",
+      "compare credibility fields for significance, confidence interval, and sample size",
+      "judge compatibility rules that prevent the tested agent grading itself by default",
+      "UI signals that separate directional movement from statistically defensible improvement",
     ],
     non_goals: [
-      "automatic dataset generation",
-      "multi-tenant governance",
-      "retroactive backfill for every historical record",
-      "changing compare semantics away from persisted run evidence",
+      "multi-provider marketplace expansion",
+      "re-scoring all historical runs in place",
+      "phase-12 trace intelligence metrics",
+      "breaking existing compare semantics or core entity names",
     ],
   },
   run_statuses: [
@@ -69,6 +69,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "type",
       "weights_json",
       "judge_model",
+      "judge_provider",
       "thresholds_json",
     ],
     eval_run: [
@@ -103,6 +104,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "formatting",
       "pass_fail",
       "review_needed",
+      "evidence_json",
     ],
     review: ["review_id", "task_run_id", "reviewer_id", "verdict", "failure_label", "note"],
   },

@@ -1,0 +1,15 @@
+{
+  "scorer_config_id": "sc_llm_judge_v1",
+  "name": "LLM Judge Support QA",
+  "type": "llm_judge",
+  "weights_json": {
+    "correctness": 0.8,
+    "tool_use": 0.1,
+    "formatting": 0.1
+  },
+  "judge_model": "claude-3-5-sonnet",
+  "judge_provider": "anthropic",
+  "thresholds_json": {
+    "pass_fail": 0.75
+  }
+}

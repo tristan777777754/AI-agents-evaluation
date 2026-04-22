@@ -14,6 +14,16 @@ function metricValue(value: number | null, suffix = ""): string {
   return `${value}${suffix}`;
 }
 
+function scorerCredibilityNote(scorerConfigId: string): string {
+  if (scorerConfigId.startsWith("sc_llm_judge")) {
+    return "Judge-backed scorer enabled";
+  }
+  if (scorerConfigId.startsWith("sc_rubric_based")) {
+    return "Rubric-backed scorer enabled";
+  }
+  return "Baseline scorer path";
+}
+
 export function RunDashboard({ summary, loadError = null }: RunDashboardProps) {
   if (loadError) {
     return (
@@ -98,6 +108,9 @@ export function RunDashboard({ summary, loadError = null }: RunDashboardProps) {
         <p style={{ margin: 0, color: "var(--muted)" }}>
           Status {summary.status} · {summary.successful_tasks}/{summary.total_tasks} succeeded ·{" "}
           {summary.failed_tasks} failed
+        </p>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Credibility mode: {scorerCredibilityNote(summary.scorer_config_id)}
         </p>
 
         <div

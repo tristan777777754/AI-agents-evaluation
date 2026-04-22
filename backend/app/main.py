@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.calibration import router as calibration_router
+from app.api.compare import router as compare_router
 from app.api.datasets import router as dataset_router
 from app.api.registry import router as registry_router
 from app.api.reviews import router as review_router
@@ -32,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(meta_router, prefix=f"{settings.api_prefix}/meta", tags=["meta"])
+app.include_router(compare_router, prefix=f"{settings.api_prefix}/compare", tags=["compare"])
 app.include_router(registry_router, prefix=f"{settings.api_prefix}/registry", tags=["registry"])
 app.include_router(dataset_router, prefix=f"{settings.api_prefix}/datasets", tags=["datasets"])
 app.include_router(run_router, prefix=f"{settings.api_prefix}/runs", tags=["runs"])

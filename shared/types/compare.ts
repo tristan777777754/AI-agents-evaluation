@@ -6,6 +6,19 @@ export type CompareMetricDelta = {
   delta: number | null;
 };
 
+export type CompareConfidenceInterval = {
+  lower: number | null;
+  upper: number | null;
+};
+
+export type CompareCredibility = {
+  label: string;
+  sample_size: number;
+  confidence_interval: CompareConfidenceInterval;
+  p_value: number | null;
+  is_significant: boolean;
+};
+
 export type CompareCategoryDelta = {
   category: string;
   baseline_total_tasks: number;
@@ -55,14 +68,84 @@ export type RunComparison = {
   baseline_status: RunStatus;
   candidate_status: RunStatus;
   compared_task_count: number;
+  sample_size: number;
   improvement_count: number;
   regression_count: number;
+  confidence_interval: CompareConfidenceInterval;
+  p_value: number | null;
+  is_significant: boolean;
   success_rate: CompareMetricDelta;
   average_latency_ms: CompareMetricDelta;
   total_cost: CompareMetricDelta;
   review_needed_count: CompareMetricDelta;
+  credibility: CompareCredibility;
   lineage: CompareLineage;
   category_deltas: CompareCategoryDelta[];
   improvements: CompareCase[];
   regressions: CompareCase[];
+};
+
+export type TraceDerivedMetrics = {
+  step_count: number;
+  tool_count: number;
+  tool_names: string[];
+  final_output_event_count: number;
+  error_event_count: number;
+  failure_step_index: number | null;
+  max_steps: number | null;
+  excess_step_count: number | null;
+  efficiency_score: number | null;
+};
+
+export type TraceComparisonEntry = {
+  run_id: string;
+  task_run_id: string;
+  dataset_item_id: string;
+  category: string;
+  status: RunStatus;
+  pass_fail: boolean | null;
+  failure_reason: FailureReason | null;
+  input_text: string;
+  expected_output: string | null;
+  final_output: string | null;
+  error_message: string | null;
+  trace_id: string;
+  storage_path: string;
+  derived_metrics: TraceDerivedMetrics;
+  events: {
+    step_index: number;
+    event_type: string;
+    message: string | null;
+    tool_name: string | null;
+    input: unknown | null;
+    output: unknown | null;
+    latency_ms: number | null;
+    status: string | null;
+    error: string | null;
+  }[];
+};
+
+export type TraceComparisonSignal = {
+  signal_key: string;
+  label: string;
+  direction: string;
+  baseline_value: string | number | null;
+  candidate_value: string | number | null;
+  detail: string | null;
+};
+
+export type TraceComparison = {
+  baseline_run_id: string;
+  candidate_run_id: string;
+  dataset_item_id: string;
+  category: string;
+  input_text: string;
+  expected_output: string | null;
+  same_final_output: boolean;
+  pass_fail_changed: boolean;
+  overall_label: string;
+  baseline: TraceComparisonEntry;
+  candidate: TraceComparisonEntry;
+  regression_signals: TraceComparisonSignal[];
+  improvement_signals: TraceComparisonSignal[];
 };

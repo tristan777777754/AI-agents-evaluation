@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -29,6 +28,13 @@ from app.schemas.runs import (
     RunTaskResultSchema,
 )
 from app.services.registry import get_agent_version, get_scorer_config
+from app.services.scoring import (
+    keyword_overlap_score,
+    llm_judge_score,
+    rubric_based_score,
+    score_for_failure,
+    validate_judge_compatibility,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +97,7 @@ def _score_schema(record: ScoreRecord | None) -> RunScoreSchema | None:
         formatting=record.formatting,
         pass_fail=record.pass_fail,
         review_needed=record.review_needed,
+        evidence_json=record.evidence_json,
     )
 
 
@@ -218,6 +225,11 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
 
     agent_version = get_agent_version(payload.agent_version_id)
     scorer_config = get_scorer_config(payload.scorer_config_id)
+    validate_judge_compatibility(
+        scorer_type=scorer_config.type,
+        judge_provider=scorer_config.judge_provider,
+        agent_model=agent_version.model,
+    )
     _build_adapter(payload.adapter_type)
 
     dataset_items = list(
@@ -261,7 +273,10 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
                 category=item.category,
                 difficulty=item.difficulty,
                 expected_output=item.expected_output,
-                metadata_json=item.metadata_json,
+                metadata_json={
+                    **(item.metadata_json or {}),
+                    "rubric_json": item.rubric_json,
+                },
             )
         )
 
@@ -327,56 +342,55 @@ def _classify_failure(
     return None
 
 
-def _score_for_failure(failure_reason: FailureReason | None) -> tuple[float, float, float, bool]:
-    if failure_reason is None:
-        return 1.0, 1.0, 1.0, True
-    if failure_reason is FailureReason.answer_incorrect:
-        return 0.0, 1.0, 1.0, False
-    if failure_reason is FailureReason.tool_error:
-        return 0.0, 0.0, 1.0, False
-    if failure_reason is FailureReason.format_error:
-        return 0.0, 1.0, 0.0, False
-    return 0.0, 0.0, 0.0, False
-
-
-def _significant_tokens(text: str) -> list[str]:
-    return [
-        token
-        for token in re.findall(r"[a-z0-9]+", text.lower())
-        if len(token) >= 3 or token.isdigit()
-    ]
-
-
-def _keyword_overlap_score(expected_output: str | None, final_output: str | None) -> float:
-    if not expected_output or not final_output:
-        return 0.0
-
-    expected_tokens = _significant_tokens(expected_output)
-    if not expected_tokens:
-        return 0.0
-
-    actual_text = final_output.lower()
-    matched_tokens = sum(1 for token in expected_tokens if token in actual_text)
-    return round(matched_tokens / len(expected_tokens), 2)
-
-
 def _score_task(
     *,
     scorer_type: str,
     failure_reason: FailureReason | None,
     expected_output: str | None,
     final_output: str | None,
+    rubric_json: dict[str, object] | None,
+    trace_events: list[dict[str, object]],
     pass_threshold: float,
-) -> tuple[float, float, float, bool]:
+    judge_model: str | None,
+    judge_provider: str | None,
+) -> tuple[float, float, float, bool, dict[str, object] | None]:
     if failure_reason is not None:
-        return _score_for_failure(failure_reason)
+        return *score_for_failure(failure_reason), {
+            "score_method": "failure_short_circuit",
+            "failure_reason": failure_reason.value,
+        }
 
     if scorer_type == "keyword_overlap":
-        correctness = _keyword_overlap_score(expected_output, final_output)
+        correctness = keyword_overlap_score(expected_output, final_output)
         pass_fail = correctness >= pass_threshold
-        return correctness, 1.0, 1.0, pass_fail
+        return correctness, 1.0, 1.0, pass_fail, {
+            "score_method": "keyword_overlap",
+            "matched_token_ratio": correctness,
+        }
 
-    return _score_for_failure(failure_reason)
+    if scorer_type == "llm_judge":
+        correctness, pass_fail, evidence = llm_judge_score(
+            expected_output=expected_output,
+            final_output=final_output,
+            pass_threshold=pass_threshold,
+            judge_model=judge_model,
+            judge_provider=judge_provider,
+        )
+        return correctness, 1.0, 1.0, pass_fail, evidence
+
+    if scorer_type == "rubric_based":
+        correctness, pass_fail, evidence = rubric_based_score(
+            rubric_json=rubric_json,
+            expected_output=expected_output,
+            final_output=final_output,
+            trace_events=trace_events,
+            pass_threshold=pass_threshold,
+        )
+        return correctness, 1.0, 1.0, pass_fail, evidence
+
+    return *score_for_failure(failure_reason), {
+        "score_method": scorer_type,
+    }
 
 
 def _set_run_status(
@@ -521,12 +535,28 @@ def _apply_task_result(
     pass_threshold = (
         float(pass_threshold_raw) if isinstance(pass_threshold_raw, int | float) else 0.7
     )
-    correctness, tool_use, formatting, pass_fail = _score_task(
+    rubric_json = None
+    if isinstance(task_run.metadata_json, dict):
+        raw_rubric = task_run.metadata_json.get("rubric_json")
+        rubric_json = raw_rubric if isinstance(raw_rubric, dict) else None
+    correctness, tool_use, formatting, pass_fail, evidence = _score_task(
         scorer_type=scorer_type,
         failure_reason=failure_reason,
         expected_output=task_run.expected_output,
         final_output=task_run.final_output,
+        rubric_json=rubric_json,
+        trace_events=trace_events,
         pass_threshold=pass_threshold,
+        judge_model=(
+            str(run.scorer_config_snapshot_json.get("judge_model"))
+            if run.scorer_config_snapshot_json.get("judge_model") is not None
+            else None
+        ),
+        judge_provider=(
+            str(run.scorer_config_snapshot_json.get("judge_provider"))
+            if run.scorer_config_snapshot_json.get("judge_provider") is not None
+            else None
+        ),
     )
     if failure_reason is None and not pass_fail:
         failure_reason = FailureReason.answer_incorrect
@@ -537,6 +567,7 @@ def _apply_task_result(
     score.formatting = formatting
     score.pass_fail = pass_fail
     score.review_needed = failure_reason is not None or not pass_fail
+    score.evidence_json = evidence
     session.add(score)
 
     trace_record = task_run.trace or TraceRecord(

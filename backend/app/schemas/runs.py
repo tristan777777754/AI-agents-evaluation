@@ -30,6 +30,7 @@ class RunScoreSchema(BaseModel):
     formatting: float | None = None
     pass_fail: bool
     review_needed: bool = False
+    evidence_json: dict[str, object] | None = None
 
 
 class RunTaskResultSchema(BaseModel):

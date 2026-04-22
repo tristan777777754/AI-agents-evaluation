@@ -70,12 +70,16 @@ def get_latest_calibration_report() -> CalibrationReportSchema:
         candidate_output_raw = metadata.get("candidate_output")
         candidate_output = candidate_output_raw if isinstance(candidate_output_raw, str) else None
 
-        correctness, _, _, pass_fail = _score_task(
+        correctness, _, _, pass_fail, _ = _score_task(
             scorer_type=scorer_config.type,
             failure_reason=actual_failure_reason,
             expected_output=item.expected_output,
             final_output=candidate_output,
+            rubric_json=item.rubric_json,
+            trace_events=[],
             pass_threshold=pass_threshold,
+            judge_model=scorer_config.judge_model,
+            judge_provider=scorer_config.judge_provider,
         )
         predicted_failure_reason = actual_failure_reason
         if predicted_failure_reason is None and not pass_fail:

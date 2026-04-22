@@ -51,6 +51,11 @@
       "category": "policy_lookup",
       "difficulty": "medium",
       "expected_output": "Enterprise users can find it in the policy center knowledge base.",
+      "rubric_json": {
+        "must_do": ["policy center"],
+        "must_not_do": ["trust center"],
+        "max_steps": 2
+      },
       "metadata_json": { "tool_expectation": "document_lookup" }
     },
     {

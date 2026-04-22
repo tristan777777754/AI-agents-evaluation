@@ -28,7 +28,7 @@ class SourceType(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 10"
+    current_phase: str = "Phase 11"
     scope: list[str]
     non_goals: list[str]
 
@@ -86,6 +86,7 @@ class ScorerConfigSchema(BaseModel):
     type: str
     weights_json: dict[str, float] = Field(default_factory=dict)
     judge_model: str | None = None
+    judge_provider: str | None = None
     thresholds_json: dict[str, float] = Field(default_factory=dict)
 
 
@@ -131,6 +132,7 @@ class ScoreSchema(BaseModel):
     formatting: float | None = None
     pass_fail: bool
     review_needed: bool = False
+    evidence_json: dict[str, object] | None = None
 
 
 class ReviewSchema(BaseModel):
@@ -152,16 +154,25 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "immutable dataset snapshots with readable historical versions",
-                    "dataset diffing, baseline pinning, and run experiment metadata",
-                    "compare lineage that exposes dataset, agent-version, and scorer snapshots",
-                    "governance metadata that improves reproducibility without fake data",
+                    "judge-backed and rubric-backed scorer paths with additive evidence payloads",
+                    (
+                        "compare credibility fields for significance, confidence interval, "
+                        "and sample size"
+                    ),
+                    (
+                        "judge compatibility rules that prevent the tested agent grading itself "
+                        "by default"
+                    ),
+                    (
+                        "UI signals that separate directional movement from statistically "
+                        "defensible improvement"
+                    ),
                 ],
                 non_goals=[
-                    "automatic dataset generation",
-                    "multi-tenant governance",
-                    "retroactive backfill for every historical record",
-                    "changing compare semantics away from persisted run evidence",
+                    "multi-provider marketplace expansion",
+                    "re-scoring all historical runs in place",
+                    "phase-12 trace intelligence metrics",
+                    "breaking existing compare semantics or core entity names",
                 ],
             ),
             run_statuses=list(RunStatus),

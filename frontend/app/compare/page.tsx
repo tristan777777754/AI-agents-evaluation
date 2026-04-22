@@ -2,17 +2,22 @@ import Link from "next/link";
 
 import { RunCompareView } from "@/components/run-compare-view";
 import { BackendApiError } from "@/lib/datasets";
-import { getRunComparison } from "@/lib/runs";
+import { getRunComparison, getTraceComparison } from "@/lib/runs";
 
 type ComparePageProps = {
   searchParams: Promise<{
     baseline_run_id?: string;
     candidate_run_id?: string;
+    dataset_item_id?: string;
   }>;
 };
 
 export default async function ComparePage({ searchParams }: ComparePageProps) {
-  const { baseline_run_id: baselineRunId, candidate_run_id: candidateRunId } = await searchParams;
+  const {
+    baseline_run_id: baselineRunId,
+    candidate_run_id: candidateRunId,
+    dataset_item_id: requestedDatasetItemId,
+  } = await searchParams;
 
   if (!baselineRunId || !candidateRunId) {
     return (
@@ -50,6 +55,14 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
 
   try {
     const comparison = await getRunComparison(baselineRunId, candidateRunId);
+    const selectedDatasetItemId =
+      requestedDatasetItemId ??
+      comparison.regressions[0]?.dataset_item_id ??
+      comparison.improvements[0]?.dataset_item_id ??
+      null;
+    const traceComparison = selectedDatasetItemId
+      ? await getTraceComparison(baselineRunId, candidateRunId, selectedDatasetItemId)
+      : null;
 
     return (
       <main
@@ -64,7 +77,11 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
         <Link href="/" style={{ color: "var(--accent)" }}>
           Back to workbench
         </Link>
-        <RunCompareView comparison={comparison} />
+        <RunCompareView
+          comparison={comparison}
+          selectedDatasetItemId={selectedDatasetItemId}
+          traceComparison={traceComparison}
+        />
       </main>
     );
   } catch (error) {

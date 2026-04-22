@@ -27,6 +27,8 @@ def list_scorer_configs() -> list[ScorerConfigSchema]:
     return [
         ScorerConfigSchema.model_validate(_read_fixture("scorer_config.json")),
         ScorerConfigSchema.model_validate(_read_fixture("scorer_config_keyword_overlap.json")),
+        ScorerConfigSchema.model_validate(_read_fixture("scorer_config_llm_judge.json")),
+        ScorerConfigSchema.model_validate(_read_fixture("scorer_config_rubric_based.json")),
     ]
 
 

@@ -83,6 +83,14 @@ export function TaskTraceViewer({ task, trace }: TaskTraceViewerProps) {
               {task.final_output ?? task.error_message ?? "No output"}
             </pre>
           </div>
+          {task.score?.evidence_json ? (
+            <div>
+              <strong>Score Evidence</strong>
+              <pre style={{ whiteSpace: "pre-wrap", margin: "0.35rem 0 0" }}>
+                {renderJson(task.score.evidence_json)}
+              </pre>
+            </div>
+          ) : null}
         </div>
       </section>
 

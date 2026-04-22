@@ -4,6 +4,7 @@ import type {
   ReviewQueue,
   ReviewUpsertRequest,
   RunComparison,
+  TraceComparison,
   RunDashboardSummary,
   RunCreateRequest,
   RunDetail,
@@ -118,6 +119,22 @@ export async function getRunComparison(
   return parseResponse<RunComparison>(response);
 }
 
+export async function getTraceComparison(
+  baselineRunId: string,
+  candidateRunId: string,
+  datasetItemId: string,
+): Promise<TraceComparison> {
+  const params = new URLSearchParams({
+    baseline: baselineRunId,
+    candidate: candidateRunId,
+    dataset_item_id: datasetItemId,
+  });
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/compare/traces?${params.toString()}`, {
+    cache: "no-store",
+  });
+  return parseResponse<TraceComparison>(response);
+}
+
 export async function getReviewQueue(): Promise<ReviewQueue> {
   const response = await fetch(`${getBackendBaseUrl()}/api/v1/reviews/queue`, {
     cache: "no-store",
@@ -145,6 +162,7 @@ export type {
   ReviewDetail,
   ReviewQueue,
   RunComparison,
+  TraceComparison,
   RunDetail,
   RunSummary,
   RunTaskList,

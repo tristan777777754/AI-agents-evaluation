@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase10}"
+PHASE="${1:-phase11}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -28,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase10", health.json()
+    assert health.json()["phase"] == "phase11", health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 10", body
+    assert body["phase"]["current_phase"] == "Phase 11", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -403,6 +403,198 @@ with TestClient(app) as client:
     assert governance_compare_body["lineage"]["candidate"]["dataset_snapshot_id"] == second_snapshot_id, governance_compare_body
     assert governance_compare_body["lineage"]["baseline"]["baseline"] is True, governance_compare_body
     assert governance_compare_body["lineage"]["candidate"]["experiment_tag"] == "phase10-smoke", governance_compare_body
+
+    if os.environ["PHASE"] == "phase10":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    import app.services.runs as run_service
+
+    class Phase11JudgeAdapter:
+        def run_task(self, input_text: str, config: dict[str, object]) -> dict[str, object]:
+            dataset_item_id = str(config["dataset_item_id"])
+            if dataset_item_id == "ds_item_006":
+                output = "Enterprise users can find it in the policy center knowledge base."
+                trace_events = [
+                    {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                    {"step_index": 1, "event_type": "tool_call", "tool_name": "document_lookup"},
+                ]
+            else:
+                output = str(config["expected_output"])
+                trace_events = [
+                    {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                    {"step_index": 1, "event_type": "final_output", "output": output},
+                ]
+            return {
+                "final_output": output,
+                "latency_ms": 88,
+                "token_usage": {"prompt": 11, "completion": 7},
+                "cost": 0.0,
+                "termination_reason": "completed",
+                "error": None,
+                "trace_events": trace_events,
+            }
+
+    run_service._build_adapter = lambda _: Phase11JudgeAdapter()
+
+    judge_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_llm_judge_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert judge_run.status_code == 201, judge_run.text
+    judge_run_body = judge_run.json()
+
+    judge_tasks = client.get(f"/api/v1/runs/{judge_run_body['run_id']}/tasks")
+    assert judge_tasks.status_code == 200, judge_tasks.text
+    judge_first = judge_tasks.json()["items"][0]
+    assert judge_first["score"]["evidence_json"]["score_method"] == "llm_judge", judge_first
+    assert judge_first["score"]["evidence_json"]["judge_provider"] == "anthropic", judge_first
+
+    rubric_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_rubric_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert rubric_run.status_code == 201, rubric_run.text
+    rubric_tasks = client.get(f"/api/v1/runs/{rubric_run.json()['run_id']}/tasks")
+    assert rubric_tasks.status_code == 200, rubric_tasks.text
+    rubric_item = next(item for item in rubric_tasks.json()["items"] if item["dataset_item_id"] == "ds_item_006")
+    assert rubric_item["score"]["evidence_json"]["score_method"] == "rubric_based", rubric_item
+    assert rubric_item["score"]["evidence_json"]["must_do"][0]["passed"] is True, rubric_item
+    assert rubric_item["score"]["evidence_json"]["step_limit"]["actual_steps"] == 2, rubric_item
+
+    phase11_compare = client.get(
+        "/api/v1/runs/compare",
+        params={
+            "baseline_run_id": run_body["run_id"],
+            "candidate_run_id": candidate_body["run_id"],
+        },
+    )
+    assert phase11_compare.status_code == 200, phase11_compare.text
+    phase11_compare_body = phase11_compare.json()
+    assert phase11_compare_body["sample_size"] == 20, phase11_compare_body
+    assert phase11_compare_body["confidence_interval"]["lower"] == -4.8, phase11_compare_body
+    assert phase11_compare_body["confidence_interval"]["upper"] == 14.8, phase11_compare_body
+    assert phase11_compare_body["p_value"] == 0.3173, phase11_compare_body
+    assert phase11_compare_body["is_significant"] is False, phase11_compare_body
+    assert phase11_compare_body["credibility"]["label"] == "directional_improvement", phase11_compare_body
+
+    if os.environ["PHASE"] == "phase11":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    with open("backend/tests/fixtures/trace_compare_phase12.json", "r", encoding="utf-8") as handle:
+        trace_fixture = json.load(handle)
+
+    class Phase12TraceAdapter:
+        def run_task(self, input_text: str, config: dict[str, object]) -> dict[str, object]:
+            profile = str(config.get("trace_profile", "baseline"))
+            dataset_item_id = str(config["dataset_item_id"])
+            expected_output = str(config["expected_output"])
+            events = [
+                {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                {"step_index": 1, "event_type": "final_output", "output": expected_output},
+            ]
+
+            if dataset_item_id == trace_fixture["regression_case"]["dataset_item_id"]:
+                events = [dict(event) for event in trace_fixture["regression_case"][f"{profile}_steps"]]
+            elif dataset_item_id == trace_fixture["improvement_case"]["dataset_item_id"]:
+                events = [dict(event) for event in trace_fixture["improvement_case"][f"{profile}_steps"]]
+
+            final_output = expected_output
+            for event in reversed(events):
+                if isinstance(event.get("output"), str):
+                    final_output = event["output"]
+                    break
+
+            return {
+                "final_output": final_output,
+                "latency_ms": 84,
+                "token_usage": {"prompt": 10, "completion": 8},
+                "cost": 0.0,
+                "termination_reason": "completed",
+                "error": None,
+                "trace_events": events,
+            }
+
+    run_service._build_adapter = lambda _: Phase12TraceAdapter()
+
+    trace_baseline = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rubric_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {"trace_profile": "baseline"},
+        },
+    )
+    assert trace_baseline.status_code == 201, trace_baseline.text
+    trace_baseline_body = trace_baseline.json()
+
+    trace_candidate = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_rubric_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {"trace_profile": "candidate"},
+        },
+    )
+    assert trace_candidate.status_code == 201, trace_candidate.text
+    trace_candidate_body = trace_candidate.json()
+
+    regression_trace_compare = client.get(
+        "/api/v1/compare/traces",
+        params={
+            "baseline": trace_baseline_body["run_id"],
+            "candidate": trace_candidate_body["run_id"],
+            "dataset_item_id": "ds_item_006",
+        },
+    )
+    assert regression_trace_compare.status_code == 200, regression_trace_compare.text
+    regression_trace_compare_body = regression_trace_compare.json()
+    assert regression_trace_compare_body["same_final_output"] is True, regression_trace_compare_body
+    assert regression_trace_compare_body["overall_label"] == "regression", regression_trace_compare_body
+    assert regression_trace_compare_body["baseline"]["derived_metrics"]["efficiency_score"] == 1.0, regression_trace_compare_body
+    assert regression_trace_compare_body["candidate"]["derived_metrics"]["efficiency_score"] == 0.5, regression_trace_compare_body
+    assert any(
+        signal["signal_key"] == "more_steps" for signal in regression_trace_compare_body["regression_signals"]
+    ), regression_trace_compare_body
+    assert regression_trace_compare_body["candidate"]["events"][1]["event_type"] == "tool_call", regression_trace_compare_body
+
+    improvement_trace_compare = client.get(
+        "/api/v1/compare/traces",
+        params={
+            "baseline": trace_baseline_body["run_id"],
+            "candidate": trace_candidate_body["run_id"],
+            "dataset_item_id": "ds_item_007",
+        },
+    )
+    assert improvement_trace_compare.status_code == 200, improvement_trace_compare.text
+    improvement_trace_compare_body = improvement_trace_compare.json()
+    assert improvement_trace_compare_body["overall_label"] == "improvement", improvement_trace_compare_body
+    assert any(
+        signal["signal_key"] == "fewer_steps" for signal in improvement_trace_compare_body["improvement_signals"]
+    ), improvement_trace_compare_body
+    assert improvement_trace_compare_body["baseline"]["events"][1]["event_type"] == "tool_call", improvement_trace_compare_body
+    assert improvement_trace_compare_body["candidate"]["events"][1]["event_type"] == "final_output", improvement_trace_compare_body
+
+    if os.environ["PHASE"] == "phase12":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
 
 print("Backend smoke checks passed.")
 PY
