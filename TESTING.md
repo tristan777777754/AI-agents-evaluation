@@ -236,6 +236,105 @@
 3. 對其中一個 run 標記 baseline
 4. compare 回傳 lineage，包含 dataset、agent version 與 scorer snapshots
 
+### Phase 11
+
+必測：
+
+- `llm_judge` scorer path
+- `rubric-based` scorer path
+- judge compatibility rule
+- compare statistical summary correctness
+- credibility label rendering
+
+最小 smoke path：
+
+1. 對固定 fixture 執行至少一個 judge-based scoring run
+2. compare 兩個 run，回傳 `sample_size`、`confidence_interval`、`p_value`、`is_significant`
+3. 驗證統計欄位可由固定 fixture 或測試資料重算
+4. UI 可顯示 statistically significant 或 inconclusive / directional 訊號
+
+### Phase 12
+
+必測：
+
+- trace-derived metrics calculation
+- side-by-side trace compare API
+- trace regression detection
+- raw trace preservation
+
+最小 smoke path：
+
+1. 建立兩個含 trace 差異的 run
+2. 呼叫 trace compare API 比對同一 dataset item
+3. 驗證 response 可指出 step_count、tool_count 或 path signal 差異
+4. 確認原始 trace payload 與衍生 trace metrics 可同時讀取
+
+### Phase 13
+
+必測：
+
+- prompt-generated dataset draft creation
+- generated dataset review / approval flow
+- failed case promote-to-dataset
+- task tags / subset run filter
+- lineage preservation
+
+最小 smoke path：
+
+1. 由 prompt 生成 dataset draft
+2. 經 review / approval 後建立可用 dataset snapshot
+3. 從 review queue 將一個 failed case 升級為 regression case
+4. 用 tag filter 啟動 subset run 並驗證只執行符合條件的 items
+
+### Phase 14
+
+必測：
+
+- registry CRUD
+- quick run
+- auto-compare
+- run progress polling
+- pagination / filtering
+
+最小 smoke path：
+
+1. 透過 API 新增 agent version
+2. 用 quick run 啟動 eval，且不需手動填所有 ID
+3. run detail 頁顯示進度隨 task completion 更新
+4. run 完成後自動帶出最新 baseline compare evidence
+
+### Phase 15
+
+必測：
+
+- repeated-run execution
+- sample metadata persistence
+- consistency / variance aggregation
+- deterministic replay coexistence
+
+最小 smoke path：
+
+1. 對同一組 input 啟動 repeated run
+2. 驗證系統保留每次 sample 的 task-level records
+3. summary 顯示 mean 與 variability 指標
+4. deterministic replay smoke 仍可在相同 repo 狀態下通過
+
+### Phase 16
+
+必測：
+
+- generator / agent / judge config persistence
+- provider compatibility rule enforcement
+- judge audit trail persistence
+- cross-judge consistency reporting
+
+最小 smoke path：
+
+1. 建立一個包含 generator、agent、judge metadata 的 eval config
+2. 嘗試送出不符合 compatibility rule 的配置並驗證被拒絕
+3. 執行合法配置後讀取 judge audit trail
+4. 產出至少一份 cross-judge / calibration extension report
+
 ## Acceptance Check Style Guide
 
 所有 acceptance checks 都應寫成以下格式：
@@ -291,12 +390,14 @@
 - 至少一個 `partial_success` run
 - 至少一個 compare baseline/candidate 組合
 
-若進入 `Phase 7-10`，還應補充：
+若進入 `Phase 7-16`，還應補充：
 
 - 一份可供真實 provider integration 使用的 benchmark dataset
 - 一份 deterministic replay manifest
 - 一份 human-labelled golden set
 - 至少一組 dataset snapshot diff fixture 或可重放上傳路徑
+- 至少一組 compare statistical fixture 或可重算樣本
+- 至少一組 side-by-side trace compare fixture
 
 ## Suggested Reporting Format
 

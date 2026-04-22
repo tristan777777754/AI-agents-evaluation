@@ -89,6 +89,17 @@ MVP 中的 review queue 定位為：
 
 這些延伸 phase 的定位是 hardening 與 governance，不是擴張產品邊界。
 
+在 `Phase 7-10` 之後，`Phase 11-16` 的延伸方向是：
+
+- 提升 evaluation credibility：導入更可信的 judge / rubric scoring 與 statistical significance
+- 提升 trace intelligence：把 step-level trace 轉成可診斷的 regression evidence
+- 建立 dataset flywheel：讓 generated、manual、failed-case promoted dataset 可以持續累積
+- 改善 operator ergonomics：把 registry、run launch、auto-compare、progress tracking 做到可日常使用
+- 補上 reliability sampling：把 variance、consistency 與 repeated-run evidence 納入判讀
+- 建立 multi-model eval governance：清楚區分 generator、agent、judge 三個角色與其審計軌跡
+
+這些 phase 的定位仍然是建立在 harness engineering 原則上的可信度提升與流程成熟化，不是把專案改造成多租戶 SaaS 或通用 benchmark 平台。
+
 ## 一句話總結
 
 這個專案不是要做出更酷的 agent，而是要做一個讓 agent 可以被系統化驗證、比較、追蹤與持續迭代的品質工作台。

@@ -15,6 +15,7 @@ Roadmap 補充：
 
 - `Phase 1-6` 為 MVP 與 demo-ready 主線
 - `Phase 7-10` 為建立在 MVP 之上的 provider integration、harness hardening、calibration、governance 延伸階段
+- `Phase 11-16` 為建立在 `Phase 7-10` 之上的 evaluation credibility、trace intelligence、dataset flywheel、operator ergonomics、reliability sampling 與 multi-model eval governance 延伸階段
 - 後續 phase 若接入真實模型供應商，仍採平台管理 credential，不改成 BYOK
 
 ## 建議技術堆疊
@@ -152,6 +153,7 @@ MVP 可先支援：
 - 執行 rule-based scorer
 - 執行 keyword-overlap scorer
 - 在需要時執行 judge-model scorer
+- 執行 rubric-based scorer
 - 輸出 structured score object
 - 提供 calibration 所需的 scorer-vs-label comparison inputs
 
@@ -176,6 +178,15 @@ MVP 可先支援：
 - 讀取 golden set 與 scorer 輸出
 - 計算 precision、recall、accuracy 與 per-category quality metrics
 - 保存 calibration summary 供首頁或 dashboard 顯示
+
+### 12. Trace Intelligence Layer
+
+責任：
+
+- 從 trace events 計算 step-level 與 path-level 指標
+- 產出 `efficiency_score`、trace regression evidence、step quality signals
+- 支援同一 dataset item 的 side-by-side trace compare
+- 保持 raw trace 與 derived trace metrics 可分離、可追溯
 
 ## End-to-End Data Flow
 
@@ -307,7 +318,16 @@ MVP 可先支援：
 - `type`
 - `weights_json`
 - `judge_model`
+- `generator_model`
 - `thresholds_json`
+
+可選欄位：
+
+- `judge_provider`
+- `generator_provider`
+- `judge_prompt_version`
+- `rubric_version`
+- `compatibility_rules_json`
 
 ### EvalRun
 
@@ -325,6 +345,12 @@ MVP 可先支援：
 - `baseline`
 - `experiment_tag`
 - `notes`
+
+可選欄位：
+
+- `sample_size`
+- `run_group_id`
+- `sampling_metadata_json`
 
 建議狀態：
 
@@ -368,6 +394,9 @@ MVP 可先支援：
 - `payload_checksum`
 - `payload_size_bytes`
 - `storage_backend`
+- `efficiency_score`
+- `trace_quality_score`
+- `regression_signal`
 
 ### Score
 
@@ -419,6 +448,26 @@ MVP 可先支援：
 
 - `per_category_json`
 - `confusion_matrix_json`
+- `notes`
+
+### CompareStatSummary
+
+用途：compare 的統計判讀與可信度輔助資訊
+
+核心欄位：
+
+- `baseline_run_id`
+- `candidate_run_id`
+- `sample_size`
+- `p_value`
+- `confidence_interval_low`
+- `confidence_interval_high`
+- `is_significant`
+
+可選欄位：
+
+- `test_method`
+- `effect_size`
 - `notes`
 
 ## Trace / Result / Run / Dataset 結構重點
@@ -508,6 +557,7 @@ MVP 可先支援：
 ### Compare / Review
 
 - `GET /compare/runs?baseline={id}&candidate={id}`
+- `GET /compare/traces?baseline={id}&candidate={id}&dataset_item_id={id}`
 - `POST /reviews`
 - `GET /reviews` — 列出待覆核案例（可篩選 review_needed=true）
 
@@ -686,12 +736,17 @@ MVP 不做：
 - 複雜工作空間 / 多租戶
 - 完整 A/B testing 平台
 
-Post-MVP `Phase 7-10` 可做：
+Post-MVP `Phase 7-16` 可做：
 
 - 真實 provider adapter integration
 - harness hardening 與 replay
 - scorer calibration
 - dataset governance 與 lineage
+- scorer credibility 與 statistical significance
+- trace intelligence 與 side-by-side trace compare
+- dataset generation / failed-case promotion / subset execution
+- registry ergonomics、quick run、progress tracking
+- repeated-run sampling 與 multi-model eval governance
 
 ## Implementation Contracts
 

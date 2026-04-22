@@ -33,6 +33,12 @@
 | P8 | Reliability 與 harness hardening | 強化 rerun、狀態守衛與可重放驗證 | 中斷後可恢復且 replay 穩定 |
 | P9 | Evaluation quality 與 scorer calibration | 用 golden set 驗證 scorer 可信度 | 可量化 scorer precision / recall |
 | P10 | Dataset governance 與 experiment management | 讓 compare 結論可追溯到快照與實驗設定 | dataset snapshot、lineage、baseline 可追查 |
+| P11 | Evaluation credibility | 提升 scorer 與 compare 判讀的可信度 | 分數與顯著性判讀可支援 release discussion |
+| P12 | Trace intelligence | 把 trace 轉成可比較、可診斷的 evidence | 能看見同題 path regression 與效率退化 |
+| P13 | Dataset flywheel | 建立 dataset 持續生成、回流、分群機制 | dataset 可從多來源累積且保持 lineage |
+| P14 | Registry and run ergonomics | 把日常操作成本降到可接受範圍 | registry、quick run、progress、auto-compare 可用 |
+| P15 | Reliability sampling | 把 variance 與 consistency 納入評估 | repeated-run evidence 可量化穩定性 |
+| P16 | Multi-model eval governance | 制度化 generator / agent / judge 關係 | 多模型評估規則與審計軌跡完整 |
 
 ## Phase 1: 專案骨架與規格落地
 
@@ -363,6 +369,200 @@
 - governance 重點是 lineage 與 immutability
 - 所有新增 metadata 都必須服務於 compare 可追溯性，而不是抽象平台化
 
+## Phase 11: Evaluation credibility
+
+### 目標
+
+補齊 scorer 與 compare 的可信度缺口，讓分數更接近可用於 release discussion 的 evidence，而不是方向性參考。
+
+### Deliverables
+
+- `llm_judge` scorer
+- `rubric-based` scorer
+- judge compatibility rule（預設 `judge_provider != agent_provider`）
+- compare statistical summary：`sample_size`、`confidence_interval`、`p_value`、`is_significant`
+- compare / dashboard credibility label 與 acceptance report
+
+### Acceptance Criteria
+
+- judge-based scorer 可對既有 task result 產出持久化 score records
+- rubric-based scorer 會實際讀取 `rubric_json`，而不是忽略欄位
+- compare response 可回傳顯著性相關欄位，且可由固定 fixture 重算
+- UI 可區分方向性 improvement 與 statistically significant improvement
+
+### Non-Goals
+
+- 不建立完整多模型 benchmark marketplace
+- 不以即時 judge 輸出覆寫既有歷史 canonical score
+- 不把 scorer credibility 問題簡化成只有換一個更強模型
+
+### 實作重點
+
+- 核心是判讀可信度，不是單純新增一種 scorer 選項
+- 統計摘要必須作為 compare evidence 的補充層，而不是取代既有 task-level records
+
+## Phase 12: Trace intelligence
+
+### 目標
+
+把已持久化的 trace 從 debug artifact 升級為可比較、可診斷的 regression evidence。
+
+### Deliverables
+
+- `efficiency_score` 與 step / tool path 衍生指標
+- trace-level evaluation path
+- side-by-side trace compare API 與 UI
+- trace regression signals：步數增加、tool calls 增加、繞路或失敗點改變
+- acceptance report
+
+### Acceptance Criteria
+
+- 同一 dataset item 可檢視 baseline / candidate 的並排 trace
+- trace compare 可指出至少一種 path regression 或 path improvement evidence
+- `efficiency_score` 可由 trace events 與 rubric / expected path metadata 穩定重算
+- trace intelligence 不會覆蓋或遺失原始 trace payload
+
+### Non-Goals
+
+- 不把 trace intelligence 簡化成只有更多 aggregate counters
+- 不把所有 trace 評估都綁死在單一 judge provider
+- 不重寫既有 trace storage 架構
+
+### 實作重點
+
+- 重點是讓 compare 回答「哪裡變差」而不只是「有沒有變差」
+- derived trace metrics 必須與 raw trace 分離保存，維持審計性
+
+## Phase 13: Dataset flywheel
+
+### 目標
+
+讓 dataset 從一次性匯入清單，升級成可由多來源持續累積、回流與分群的可治理資產。
+
+### Deliverables
+
+- prompt-to-dataset generation path
+- generated dataset review / approval flow
+- failed case promote-to-dataset workflow
+- dataset source metadata：`manual`、`generated`、`promoted_from_failure`
+- task tags / subset run filter
+- dataset diff / lineage acceptance report
+
+### Acceptance Criteria
+
+- 使用者可由 prompt 生成 dataset draft，且需經 review 才能成為可用 dataset
+- review queue 中的 failed case 可升級為 regression case 並保留來源鏈路
+- subset run 可只執行帶特定 tag 的 dataset items
+- dataset snapshot 與 lineage 在 generated / promoted 流程下仍可追溯
+
+### Non-Goals
+
+- 不讓 generated dataset 直接取代人工 curated benchmark
+- 不把 dataset generator 當成自動品質保證
+- 不破壞既有 snapshot immutability 規則
+
+### 實作重點
+
+- dataset flywheel 的價值在於回流與累積，不在於一次生成大量題目
+- 任何自動生成來源都必須帶有 source metadata 與 review 狀態
+
+## Phase 14: Registry and run ergonomics
+
+### 目標
+
+降低日常操作摩擦，讓 registry、run launch、compare 與進度追蹤達到可天天使用的程度。
+
+### Deliverables
+
+- database-backed agent registry 與 CRUD API
+- quick run workflow
+- auto-compare to latest baseline
+- run progress polling / progress bar
+- list pagination 與基本 filter / sort
+- acceptance report
+
+### Acceptance Criteria
+
+- 可在不改程式碼、不重啟服務的情況下新增 agent version 並啟動 eval
+- quick run 會使用真實持久化 dataset 與 scorer config 建立 run
+- run detail 頁可顯示 `tasks_completed / tasks_total` 等進度資訊
+- runs、dataset items、review queue 在資料量增加後仍可分頁瀏覽
+
+### Non-Goals
+
+- 不改變 immutable agent version snapshot 原則
+- 不用 fake progress 製造看似流暢的體驗
+- 不把 ergonomics 當成任意加功能的理由
+
+### 實作重點
+
+- 這一階段重點是日常操作成本，而不是功能邊界擴張
+- 所有 convenience flow 仍然必須建立在真實 run、dataset、scorer records 之上
+
+## Phase 15: Reliability sampling
+
+### 目標
+
+把 repeated runs、variance 與 consistency 納入 evaluation evidence，避免單次 run 被誤解為穩定能力。
+
+### Deliverables
+
+- repeated-run execution support
+- run-group / sample metadata
+- consistency、variance、stddev summary 指標
+- compare 支援 deterministic regression 與 unstable regression 的區分
+- deterministic replay-compatible acceptance report
+
+### Acceptance Criteria
+
+- 同一組輸入可在固定 sampling config 下執行多次並保留樣本層級紀錄
+- summary 可同時顯示 mean 與 variability 指標
+- compare 可指出 candidate 是穩定退化還是不穩定波動
+- deterministic smoke 與 replay fixture 仍可在不依賴外部模型條件下通過
+
+### Non-Goals
+
+- 不以 sampling 取代 deterministic smoke
+- 不把 repeated-run 聚合覆寫成單次 run 的 canonical metrics
+- 不修改既有核心 status enum 或 baseline 語義
+
+### 實作重點
+
+- 重點是「穩定性 evidence」，不是追求更昂貴的跑法
+- 抽樣層與單次 run 層必須清楚分離
+
+## Phase 16: Multi-model eval governance
+
+### 目標
+
+把 generator、agent、judge 三個角色制度化，建立 provider compatibility rule、審計軌跡與多模型評估治理。
+
+### Deliverables
+
+- scorer / evaluation config 的 generator-agent-judge 分離設定
+- provider compatibility rules
+- judge audit trail：prompt、model、version、reasoning metadata
+- cross-judge / calibration extension report
+- acceptance report
+
+### Acceptance Criteria
+
+- evaluation config 可清楚記錄 generator、agent、judge 的 provider 與 model
+- 系統可拒絕不符合 compatibility rule 的高風險配置
+- judge decision 可追溯到具體 prompt / model / version metadata
+- calibration extension report 可比較不同 judge 對同一批案例的一致性
+
+### Non-Goals
+
+- 不導入 BYOK
+- 不擴張成多租戶模型治理平台
+- 不破壞既有 scorer 與 compare response 語義
+
+### 實作重點
+
+- 治理的核心是可審計與可解釋，不是單純多放幾個 provider 選單
+- 所有新 metadata 必須服務於 evaluation credibility 與 harness repeatability
+
 ## 建議的 Agent 工作方式
 
 每個 phase 都應建立獨立任務文件，至少包含：
@@ -447,7 +647,7 @@
 # Task: <task name>
 
 ## Current Phase
-<Phase 1-6>
+<Phase 1-16>
 
 ## Goal
 <one clear outcome>

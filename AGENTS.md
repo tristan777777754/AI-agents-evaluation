@@ -25,12 +25,15 @@
 - Run comparison
 - 基本 review queue
 
-正式路線分成兩段：
+正式路線分成三段：
 
 - `Phase 1-6` 為 MVP 與 demo-ready 主線
 - `Phase 7-10` 為建立在已完成 MVP 之上的 post-MVP hardening / governance roadmap
+- `Phase 11-16` 為建立在 `Phase 7-10` 之上的 evaluation credibility、trace intelligence、dataset flywheel、operator ergonomics、reliability sampling 與 multi-model eval governance 延伸路線
 
 `Phase 7-10` 可以擴充可重現性、真實 adapter、校準與治理能力，但不得推翻前六個 phase 已固定的核心 domain、compare 原則與單租戶前提。
+
+`Phase 11-16` 可以提升評分可信度、trace 診斷能力、dataset 累積能力與多模型評估治理，但不得把專案改造成多租戶 SaaS、通用 benchmark marketplace 或脫離既有 harness engineering 原則的研究型平台。
 
 明確不在目前 scope 內的內容：
 
@@ -186,6 +189,12 @@ FRONTEND_PORT=3000
 8. `Phase 8` Reliability 與 harness hardening
 9. `Phase 9` Evaluation quality 與 scorer calibration
 10. `Phase 10` Dataset governance 與 experiment management
+11. `Phase 11` Evaluation credibility
+12. `Phase 12` Trace intelligence
+13. `Phase 13` Dataset flywheel
+14. `Phase 14` Registry and run ergonomics
+15. `Phase 15` Reliability sampling
+16. `Phase 16` Multi-model eval governance
 ## Checks Before Moving To Next Phase
 
 每完成一個 phase，至少要跑與記錄以下檢查：
@@ -292,6 +301,48 @@ FRONTEND_PORT=3000
 - dataset versioning 必須保證舊 snapshot 可讀，不得以 overwrite 破壞 compare 可追溯性
 - compare lineage 應補充既有 compare response，而不是破壞既有欄位語義
 - 不得引入多租戶權限模型或超出單租戶前提的治理系統
+
+### Phase 11
+
+- 專注 scorer credibility、judge routing 與 compare 統計判讀
+- 必須保留既有 canonical score / compare contract 的向後相容性，以補充欄位方式擴充
+- 不得讓同一 provider 同時扮演受測 agent 與 judge 的預設路徑
+- 不得以更花俏的 UI 掩蓋 scorer 本身不可信的問題
+
+### Phase 12
+
+- 專注 trace intelligence、step-level analysis、side-by-side trace compare
+- 不得把 trace intelligence 簡化成只有額外幾個 aggregate counters
+- trace regression 必須以同一 dataset item 的持久化 trace 為基礎，不得臨時拼接假資料
+- 新增 trace metrics 不得覆寫既有 trace raw payload 與 summary 索引
+
+### Phase 13
+
+- 專注 dataset 來源擴充、review-to-regression 回流、dataset diff 與 subset execution metadata
+- prompt 生成 dataset 只能作為來源之一，不得取代人工 curated dataset 與 failed-case promotion
+- generated dataset 必須保留 source metadata 與人工 review 狀態，不得直接視為可信 benchmark
+- 不得讓 dataset flywheel 破壞 snapshot immutability 與 lineage
+
+### Phase 14
+
+- 專注 registry DB 化、quick run、auto-compare、progress tracking、分頁與基本操作體驗
+- 不得為了方便性而繞過既有 immutable agent version snapshot 原則
+- quick run 與 auto-compare 必須仍然使用真實持久化 dataset、scorer 與 run records
+- 不得把 ergonomics phase 擴張成新產品面功能集合
+
+### Phase 15
+
+- 專注 repeated runs、variance、consistency 與 sampling-based reliability 指標
+- 不得把 repeated-run 結果混寫回單次 run 的 canonical metrics，必須保留樣本層級與聚合層級區分
+- deterministic smoke 與 stub / replay fixture 必須持續存在，不得改成只能靠外部模型驗證
+- 不得以 sampling 為理由修改既有核心 status enum、compare 定義或 baseline 語義
+
+### Phase 16
+
+- 專注 generator / agent / judge 三角色治理、provider compatibility rule、judge audit trail、calibration extension
+- 多模型治理仍以平台管理 credential 為前提，不得轉向 BYOK
+- judge / generator metadata 應補充既有 scorer 與 compare contract，不得破壞既有欄位語義
+- 不得把此 phase 擴張成通用模型供應商 marketplace 或多租戶治理系統
 
 ## Definition Of Done
 
