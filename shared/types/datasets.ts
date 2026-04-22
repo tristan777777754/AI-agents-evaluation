@@ -24,6 +24,37 @@ export type DatasetUploadResult = {
   preview_items: DatasetItem[];
 };
 
+export type DatasetDraftGenerateRequest = {
+  name: string;
+  prompt: string;
+  description?: string | null;
+  item_count?: number;
+  tags?: string[];
+};
+
+export type DatasetDraftList = {
+  total_count: number;
+  items: DatasetSummary[];
+};
+
+export type DatasetApprovalRequest = {
+  reviewer_id: string;
+  note?: string | null;
+};
+
+export type DatasetPromotionRequest = {
+  target_dataset_id?: string | null;
+  target_dataset_name?: string | null;
+  create_as_draft?: boolean;
+  tags?: string[];
+};
+
+export type DatasetPromotionResult = {
+  dataset: DatasetDetail;
+  snapshot_id: string;
+  promoted_item: DatasetItem;
+};
+
 export type DatasetSnapshotList = {
   dataset_id: string;
   snapshots: DatasetSnapshot[];

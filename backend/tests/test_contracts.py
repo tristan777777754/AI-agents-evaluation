@@ -26,11 +26,12 @@ def test_dataset_item_requires_input_text_and_category() -> None:
 def test_phase_contract_snapshot_contains_core_entities() -> None:
     snapshot = PhaseContractSnapshot.build_default()
 
-    assert snapshot.phase.current_phase == "Phase 11"
+    assert snapshot.phase.current_phase == "Phase 13"
     assert "eval_run" in snapshot.entities
     assert "dataset_snapshot" in snapshot.entities
     assert RunStatus.partial_success in snapshot.run_statuses
     assert "evidence_json" in snapshot.entities["score"]
+    assert "lifecycle_status" in snapshot.entities["dataset"]
 
 
 def test_eval_run_schema_accepts_canonical_status_values() -> None:
@@ -57,6 +58,7 @@ def test_dataset_schema_defaults_schema_version() -> None:
     )
 
     assert dataset.schema_version == "1.0"
+    assert dataset.lifecycle_status.value == "published"
 
 
 def test_dataset_snapshot_schema_tracks_immutable_versions() -> None:

@@ -4,17 +4,16 @@ const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://local
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 11",
+    current_phase: "Phase 13",
     scope: [
-      "judge-backed and rubric-backed scorer paths with additive evidence payloads",
-      "compare credibility fields for significance, confidence interval, and sample size",
-      "judge compatibility rules that prevent the tested agent grading itself by default",
-      "UI signals that separate directional movement from statistically defensible improvement",
+      "generated dataset drafts gated behind explicit approval",
+      "failed-case promotion into regression-oriented snapshots",
+      "tag-based subset execution without mutating prior snapshots",
     ],
     non_goals: [
-      "multi-provider marketplace expansion",
-      "re-scoring all historical runs in place",
-      "phase-12 trace intelligence metrics",
+      "fully autonomous dataset generation without review",
+      "production log ingestion pipelines",
+      "phase-14 registry ergonomics or pagination work",
       "breaking existing compare semantics or core entity names",
     ],
   },
@@ -43,6 +42,12 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "description",
       "schema_version",
       "source_type",
+      "source_origin",
+      "lifecycle_status",
+      "approval_status",
+      "generated_prompt",
+      "approved_by",
+      "approved_at",
       "latest_snapshot_id",
     ],
     dataset_snapshot: [
@@ -50,6 +55,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "dataset_id",
       "version_number",
       "checksum",
+      "parent_snapshot_id",
       "created_at",
     ],
     dataset_item: [
@@ -61,6 +67,9 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "expected_output",
       "rubric_json",
       "reference_context",
+      "source_origin",
+      "source_task_run_id",
+      "tags",
       "metadata_json",
     ],
     scorer_config: [
@@ -77,6 +86,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "agent_version_id",
       "dataset_id",
       "dataset_snapshot_id",
+      "dataset_tag_filter",
       "scorer_config_id",
       "status",
       "baseline",
@@ -89,6 +99,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "task_run_id",
       "run_id",
       "dataset_item_id",
+      "dataset_item_tags",
       "status",
       "final_output",
       "latency_ms",

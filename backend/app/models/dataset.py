@@ -16,6 +16,12 @@ class DatasetRecord(Base):
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     schema_version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0")
     source_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_origin: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")
+    lifecycle_status: Mapped[str] = mapped_column(String(32), nullable=False, default="published")
+    approval_status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved")
+    generated_prompt: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     latest_snapshot_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -46,6 +52,7 @@ class DatasetSnapshotRecord(Base):
     )
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    parent_snapshot_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -93,6 +100,9 @@ class DatasetItemRecord(Base):
     expected_output: Mapped[str | None] = mapped_column(Text(), nullable=True)
     rubric_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     reference_context: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    source_origin: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")
+    source_task_run_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    tag_list_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     dataset: Mapped[DatasetRecord] = relationship(back_populates="items")

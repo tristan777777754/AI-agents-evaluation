@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
@@ -27,6 +29,14 @@ def init_db() -> None:
 
 
 def reset_db() -> None:
+    if settings.database_url.startswith("sqlite"):
+        db_url = make_url(settings.database_url)
+        database = db_url.database
+        if database and database != ":memory:":
+            engine.dispose()
+            db_path = Path(database)
+            if db_path.exists():
+                db_path.unlink()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 

@@ -9,8 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.schemas.datasets import (
+    DatasetApprovalRequestSchema,
     DatasetDetailSchema,
     DatasetDiffSchema,
+    DatasetDraftGenerateRequestSchema,
+    DatasetDraftListSchema,
     DatasetImportErrorSchema,
     DatasetItemListSchema,
     DatasetSnapshotListSchema,
@@ -19,10 +22,13 @@ from app.schemas.datasets import (
 )
 from app.services.datasets import (
     DatasetImportValidationException,
+    approve_dataset_draft,
     create_dataset,
+    generate_dataset_draft,
     get_dataset_detail,
     get_dataset_diff,
     get_dataset_items,
+    list_dataset_drafts,
     list_dataset_snapshots,
     list_datasets,
     parse_dataset_upload,
@@ -84,6 +90,23 @@ async def upload_dataset(
         snapshot_id=dataset.snapshot_id,
         preview_items=normalized.items[:5],
     )
+
+
+@router.get("/drafts", response_model=DatasetDraftListSchema)
+def get_dataset_drafts(session: DatasetSession) -> DatasetDraftListSchema:
+    return list_dataset_drafts(session)
+
+
+@router.post(
+    "/drafts/generate",
+    response_model=DatasetDetailSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_generated_dataset_draft(
+    payload: DatasetDraftGenerateRequestSchema,
+    session: DatasetSession,
+) -> DatasetDetailSchema:
+    return generate_dataset_draft(session, payload)
 
 
 @router.get("", response_model=list[DatasetSummarySchema])
@@ -154,3 +177,17 @@ def get_dataset_snapshot_diff(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dataset snapshot not found.",
         ) from exc
+
+
+@router.post("/{dataset_id}/approve", response_model=DatasetDetailSchema)
+def approve_dataset(
+    dataset_id: str,
+    payload: DatasetApprovalRequestSchema,
+    session: DatasetSession,
+) -> DatasetDetailSchema:
+    try:
+        return approve_dataset_draft(session, dataset_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

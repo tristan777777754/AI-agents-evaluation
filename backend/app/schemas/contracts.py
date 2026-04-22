@@ -25,10 +25,28 @@ class SourceType(str, Enum):
     json = "json"
     csv = "csv"
     fixture = "fixture"
+    prompt = "prompt"
+    promotion = "promotion"
+
+
+class DatasetSourceOrigin(str, Enum):
+    manual = "manual"
+    generated = "generated"
+    promoted_from_failure = "promoted_from_failure"
+
+
+class DatasetLifecycleStatus(str, Enum):
+    draft = "draft"
+    published = "published"
+
+
+class DatasetApprovalStatus(str, Enum):
+    pending_review = "pending_review"
+    approved = "approved"
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 11"
+    current_phase: str = "Phase 13"
     scope: list[str]
     non_goals: list[str]
 
@@ -57,6 +75,12 @@ class DatasetSchema(BaseModel):
     description: str | None = None
     schema_version: str = "1.0"
     source_type: SourceType
+    source_origin: DatasetSourceOrigin = DatasetSourceOrigin.manual
+    lifecycle_status: DatasetLifecycleStatus = DatasetLifecycleStatus.published
+    approval_status: DatasetApprovalStatus = DatasetApprovalStatus.approved
+    generated_prompt: str | None = None
+    approved_by: str | None = None
+    approved_at: str | None = None
     latest_snapshot_id: str | None = None
 
 
@@ -65,6 +89,7 @@ class DatasetSnapshotSchema(BaseModel):
     dataset_id: str
     version_number: int
     checksum: str
+    parent_snapshot_id: str | None = None
     created_at: str | None = None
 
 
@@ -77,6 +102,9 @@ class DatasetItemSchema(BaseModel):
     expected_output: str | None = None
     rubric_json: dict[str, object] | None = None
     reference_context: str | None = None
+    source_origin: DatasetSourceOrigin = DatasetSourceOrigin.manual
+    source_task_run_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
     metadata_json: dict[str, object] | None = None
 
 
@@ -95,6 +123,7 @@ class EvalRunSchema(BaseModel):
     agent_version_id: str
     dataset_id: str
     dataset_snapshot_id: str | None = None
+    dataset_tag_filter: list[str] = Field(default_factory=list)
     scorer_config_id: str
     status: RunStatus
     baseline: bool = False
@@ -108,6 +137,7 @@ class EvalTaskRunSchema(BaseModel):
     task_run_id: str = Field(..., examples=["task_run_001"])
     run_id: str
     dataset_item_id: str
+    dataset_item_tags: list[str] = Field(default_factory=list)
     status: RunStatus
     final_output: str | None = None
     latency_ms: int | None = None
@@ -155,23 +185,14 @@ class PhaseContractSnapshot(BaseModel):
             phase=PhaseMarker(
                 scope=[
                     "judge-backed and rubric-backed scorer paths with additive evidence payloads",
-                    (
-                        "compare credibility fields for significance, confidence interval, "
-                        "and sample size"
-                    ),
-                    (
-                        "judge compatibility rules that prevent the tested agent grading itself "
-                        "by default"
-                    ),
-                    (
-                        "UI signals that separate directional movement from statistically "
-                        "defensible improvement"
-                    ),
+                    "generated dataset drafts gated behind explicit approval",
+                    "failed-case promotion into regression-oriented snapshots",
+                    "tag-based subset execution without mutating prior snapshots",
                 ],
                 non_goals=[
-                    "multi-provider marketplace expansion",
-                    "re-scoring all historical runs in place",
-                    "phase-12 trace intelligence metrics",
+                    "fully autonomous dataset generation without review",
+                    "production log ingestion pipelines",
+                    "phase-14 registry ergonomics or pagination work",
                     "breaking existing compare semantics or core entity names",
                 ],
             ),

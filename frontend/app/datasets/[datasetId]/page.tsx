@@ -51,10 +51,16 @@ export default async function DatasetDetailPage({ params }: DatasetDetailPagePro
           <p style={{ margin: 0 }}>
             {dataset.item_count} items · categories: {dataset.categories.join(", ") || "none"}
           </p>
+          <p style={{ margin: 0 }}>
+            {dataset.source_origin} · {dataset.lifecycle_status} · {dataset.approval_status}
+          </p>
           <p style={{ margin: 0, color: "var(--muted)" }}>
             Snapshot {dataset.snapshot_id} · version {dataset.snapshot_version} of {dataset.snapshot_count}
             {dataset.latest_snapshot_id ? ` · latest ${dataset.latest_snapshot_id}` : ""}
           </p>
+          {dataset.generated_prompt ? (
+            <p style={{ margin: 0, color: "var(--muted)" }}>Prompt: {dataset.generated_prompt}</p>
+          ) : null}
         </section>
 
         <DatasetItemsTable datasetItems={datasetItems} />

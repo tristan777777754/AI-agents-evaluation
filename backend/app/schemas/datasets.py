@@ -6,6 +6,7 @@ from app.schemas.contracts import (
     DatasetItemSchema,
     DatasetSchema,
     DatasetSnapshotSchema,
+    DatasetSourceOrigin,
     SourceType,
 )
 
@@ -32,6 +33,37 @@ class DatasetUploadResultSchema(BaseModel):
     dataset: DatasetDetailSchema
     snapshot_id: str
     preview_items: list[DatasetItemSchema] = Field(default_factory=list)
+
+
+class DatasetDraftGenerateRequestSchema(BaseModel):
+    name: str
+    prompt: str
+    description: str | None = None
+    item_count: int = Field(default=3, ge=1, le=10)
+    tags: list[str] = Field(default_factory=list)
+
+
+class DatasetDraftListSchema(BaseModel):
+    total_count: int
+    items: list[DatasetSummarySchema] = Field(default_factory=list)
+
+
+class DatasetApprovalRequestSchema(BaseModel):
+    reviewer_id: str
+    note: str | None = None
+
+
+class DatasetPromotionRequestSchema(BaseModel):
+    target_dataset_id: str | None = None
+    target_dataset_name: str | None = None
+    create_as_draft: bool = False
+    tags: list[str] = Field(default_factory=list)
+
+
+class DatasetPromotionResultSchema(BaseModel):
+    dataset: DatasetDetailSchema
+    snapshot_id: str
+    promoted_item: DatasetItemSchema
 
 
 class DatasetSnapshotListSchema(BaseModel):
@@ -78,6 +110,9 @@ class DatasetImportItemSchema(BaseModel):
     expected_output: str | None = None
     rubric_json: dict[str, object] | None = None
     reference_context: str | None = None
+    source_origin: DatasetSourceOrigin = DatasetSourceOrigin.manual
+    source_task_run_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
     metadata_json: dict[str, object] | None = None
 
 

@@ -1,8 +1,13 @@
 import type {
+  DatasetApprovalRequest,
   DatasetDetail,
+  DatasetDraftGenerateRequest,
+  DatasetDraftList,
   DatasetDiff,
   DatasetImportError,
   DatasetItemList,
+  DatasetPromotionRequest,
+  DatasetPromotionResult,
   DatasetSnapshotList,
   DatasetSummary,
   DatasetUploadResult,
@@ -53,6 +58,13 @@ export async function listDatasets(): Promise<DatasetSummary[]> {
   return parseResponse<DatasetSummary[]>(response);
 }
 
+export async function listDatasetDrafts(): Promise<DatasetDraftList> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/drafts`, {
+    cache: "no-store",
+  });
+  return parseResponse<DatasetDraftList>(response);
+}
+
 export async function getDatasetDetail(
   datasetId: string,
   snapshotId?: string,
@@ -97,6 +109,47 @@ export async function getDatasetDiff(
   return parseResponse<DatasetDiff>(response);
 }
 
+export async function generateDatasetDraft(
+  payload: DatasetDraftGenerateRequest,
+): Promise<DatasetDetail> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/drafts/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<DatasetDetail>(response);
+}
+
+export async function approveDatasetDraft(
+  datasetId: string,
+  payload: DatasetApprovalRequest,
+): Promise<DatasetDetail> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<DatasetDetail>(response);
+}
+
+export async function promoteTaskRunToDataset(
+  taskRunId: string,
+  payload: DatasetPromotionRequest,
+): Promise<DatasetPromotionResult> {
+  const response = await fetch(`${backendBaseUrl}/api/v1/task-runs/${taskRunId}/promote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<DatasetPromotionResult>(response);
+}
+
 export function extractDatasetImportError(error: unknown): DatasetImportError | null {
   if (!(error instanceof BackendApiError)) {
     return null;
@@ -135,9 +188,14 @@ export function formatDatasetImportError(error: DatasetImportError): string[] {
 }
 
 export type {
+  DatasetApprovalRequest,
   DatasetDetail,
+  DatasetDraftGenerateRequest,
+  DatasetDraftList,
   DatasetDiff,
   DatasetItemList,
+  DatasetPromotionRequest,
+  DatasetPromotionResult,
   DatasetSnapshotList,
   DatasetSummary,
   DatasetUploadResult,

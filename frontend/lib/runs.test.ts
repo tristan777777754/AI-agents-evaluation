@@ -9,6 +9,7 @@ describe("run summary contract", () => {
       agent_version_id: "av_support_qa_v1",
       dataset_id: "dataset_support_faq_v1",
       dataset_snapshot_id: "dataset_support_faq_v1__snapshot_001",
+      dataset_tag_filter: [],
       scorer_config_id: "sc_rule_based_v1",
       status: "partial_success",
       baseline: true,

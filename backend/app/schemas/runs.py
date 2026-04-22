@@ -18,6 +18,7 @@ class RunCreateRequestSchema(BaseModel):
     dataset_id: str
     agent_version_id: str
     scorer_config_id: str
+    dataset_tag_filter: list[str] = Field(default_factory=list)
     adapter_type: Literal["stub", "openai"] = "stub"
     adapter_config: dict[str, object] = Field(default_factory=dict)
     experiment_tag: str | None = None
@@ -37,6 +38,7 @@ class RunTaskResultSchema(BaseModel):
     task_run_id: str
     run_id: str
     dataset_item_id: str
+    dataset_item_tags: list[str] = Field(default_factory=list)
     status: RunStatus
     input_text: str
     category: str

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FailedCasePromoter } from "@/components/failed-case-promoter";
 import { ReviewEditor } from "@/components/review-editor";
 import { TaskTraceViewer } from "@/components/task-trace-viewer";
 import { BackendApiError } from "@/lib/datasets";
@@ -60,6 +61,11 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
 
         <TaskTraceViewer task={task} trace={trace} />
         <ReviewEditor task={task} />
+        <FailedCasePromoter
+          taskRunId={task.task_run_id}
+          datasetItemId={task.dataset_item_id}
+          review={task.review}
+        />
       </main>
     );
   } catch (error) {

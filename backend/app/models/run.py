@@ -33,6 +33,7 @@ class EvalRunRecord(Base):
     adapter_config_json: Mapped[dict[str, object]] = mapped_column(
         JSON, nullable=False, default=dict
     )
+    dataset_tag_filter_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     total_tasks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completed_tasks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failed_tasks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -71,6 +72,7 @@ class EvalTaskRunRecord(Base):
     difficulty: Mapped[str | None] = mapped_column(String(64), nullable=True)
     expected_output: Mapped[str | None] = mapped_column(Text(), nullable=True)
     metadata_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    dataset_item_tags_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     final_output: Mapped[str | None] = mapped_column(Text(), nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_usage: Mapped[dict[str, int] | None] = mapped_column(JSON, nullable=True)

@@ -18,7 +18,13 @@ from app.models import (
     ScoreRecord,
     TraceRecord,
 )
-from app.schemas.contracts import EvalRunSchema, FailureReason, RunStatus, TraceSummarySchema
+from app.schemas.contracts import (
+    DatasetLifecycleStatus,
+    EvalRunSchema,
+    FailureReason,
+    RunStatus,
+    TraceSummarySchema,
+)
 from app.schemas.runs import (
     RunCreateRequestSchema,
     RunDetailSchema,
@@ -119,6 +125,7 @@ def _task_schema(record: EvalTaskRunRecord) -> RunTaskResultSchema:
         task_run_id=record.task_run_id,
         run_id=record.run_id,
         dataset_item_id=record.dataset_item_id,
+        dataset_item_tags=list(record.dataset_item_tags_json or []),
         status=RunStatus(record.status),
         input_text=record.input_text,
         category=record.category,
@@ -148,6 +155,7 @@ def _run_summary_schema(record: EvalRunRecord) -> RunSummarySchema:
         agent_version_id=record.agent_version_id,
         dataset_id=record.dataset_id,
         dataset_snapshot_id=record.dataset_snapshot_id,
+        dataset_tag_filter=list(record.dataset_tag_filter_json or []),
         scorer_config_id=record.scorer_config_id,
         status=RunStatus(record.status),
         baseline=record.baseline,
@@ -216,6 +224,8 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
     dataset = session.get(DatasetRecord, payload.dataset_id)
     if dataset is None:
         raise LookupError("Dataset not found.")
+    if dataset.lifecycle_status != DatasetLifecycleStatus.published.value:
+        raise ValueError("Dataset drafts must be approved before they can be used in a run.")
     if dataset.latest_snapshot_id is None:
         raise LookupError("Dataset has no immutable snapshot yet.")
 
@@ -239,6 +249,16 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
             .order_by(DatasetItemRecord.sort_index.asc())
         ).scalars()
     )
+    if payload.dataset_tag_filter:
+        requested_tags = {tag.strip().lower() for tag in payload.dataset_tag_filter if tag.strip()}
+        dataset_items = [
+            item
+            for item in dataset_items
+            if requested_tags.intersection({tag.lower() for tag in item.tag_list_json or []})
+        ]
+        if not dataset_items:
+            raise ValueError("No dataset items matched the requested tag filter.")
+
     run_id = f"run_{uuid4().hex[:12]}"
     run_record = EvalRunRecord(
         run_id=run_id,
@@ -252,6 +272,7 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
         agent_version_snapshot_json=agent_version.model_dump(mode="json"),
         scorer_config_snapshot_json=scorer_config.model_dump(mode="json"),
         adapter_config_json=payload.adapter_config,
+        dataset_tag_filter_json=payload.dataset_tag_filter,
         baseline=False,
         experiment_tag=payload.experiment_tag,
         notes=payload.notes,
@@ -273,9 +294,11 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
                 category=item.category,
                 difficulty=item.difficulty,
                 expected_output=item.expected_output,
+                dataset_item_tags_json=list(item.tag_list_json or []),
                 metadata_json={
                     **(item.metadata_json or {}),
                     "rubric_json": item.rubric_json,
+                    "dataset_item_tags": list(item.tag_list_json or []),
                 },
             )
         )
@@ -286,6 +309,7 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
         agent_version_id=run_record.agent_version_id,
         dataset_id=run_record.dataset_id,
         dataset_snapshot_id=run_record.dataset_snapshot_id,
+        dataset_tag_filter=list(run_record.dataset_tag_filter_json or []),
         scorer_config_id=run_record.scorer_config_id,
         status=RunStatus(run_record.status),
         baseline=run_record.baseline,

@@ -67,6 +67,7 @@ describe("phase 11 credibility contracts", () => {
       task_run_id: "run_v2__task_001",
       run_id: "run_v2",
       dataset_item_id: "ds_item_001",
+      dataset_item_tags: [],
       status: "completed",
       input_text: "What is the refund policy?",
       category: "refund_policy",

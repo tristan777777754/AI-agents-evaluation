@@ -40,12 +40,17 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
     const scorerConfigId = String(formData.get("scorer_config_id") ?? "");
     const experimentTag = String(formData.get("experiment_tag") ?? "").trim();
     const notes = String(formData.get("notes") ?? "").trim();
+    const datasetTagFilter = String(formData.get("dataset_tag_filter") ?? "")
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
 
     try {
       const run = await createRun({
         dataset_id: datasetId,
         agent_version_id: agentVersionId,
         scorer_config_id: scorerConfigId,
+        dataset_tag_filter: datasetTagFilter,
         adapter_type: "stub",
         adapter_config: {
           failure_mode: failureMode,
@@ -126,6 +131,16 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
           name="experiment_tag"
           type="text"
           placeholder="phase10-governance"
+          disabled={submitting}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span>Dataset tag filter</span>
+        <input
+          name="dataset_tag_filter"
+          type="text"
+          placeholder="refunds, regression"
           disabled={submitting}
         />
       </label>

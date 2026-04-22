@@ -1,6 +1,8 @@
 import { CalibrationPanel } from "@/components/calibration-panel";
 import { CompareLauncherForm } from "@/components/compare-launcher-form";
 import { ContractSummary } from "@/components/contract-summary";
+import { DatasetDraftGenerator } from "@/components/dataset-draft-generator";
+import { DatasetDraftList } from "@/components/dataset-draft-list";
 import { DatasetList } from "@/components/dataset-list";
 import { DatasetUploadForm } from "@/components/dataset-upload-form";
 import { ReviewQueuePanel } from "@/components/review-queue-panel";
@@ -9,7 +11,12 @@ import { RunLauncherForm } from "@/components/run-launcher-form";
 import { RunList } from "@/components/run-list";
 import { getLatestCalibrationReport, type CalibrationReport } from "@/lib/calibration";
 import { getContractSnapshot, phase1ContractPreview } from "@/lib/contracts";
-import { listDatasets, type DatasetSummary } from "@/lib/datasets";
+import {
+  listDatasetDrafts,
+  listDatasets,
+  type DatasetDraftList as DatasetDraftListType,
+  type DatasetSummary,
+} from "@/lib/datasets";
 import {
   getRegistry,
   getReviewQueue,
@@ -32,6 +39,8 @@ export default async function HomePage() {
   let dashboardLoadError: string | null = null;
   let reviewQueue: ReviewQueue | null = null;
   let reviewQueueLoadError: string | null = null;
+  let datasetDrafts: DatasetDraftListType | null = null;
+  let datasetDraftLoadError: string | null = null;
   let calibrationReport: CalibrationReport | null = null;
   let calibrationLoadError: string | null = null;
   let contractSnapshot = phase1ContractPreview;
@@ -48,6 +57,13 @@ export default async function HomePage() {
   } catch (error) {
     reviewQueueLoadError =
       error instanceof Error ? error.message : "Review queue could not be loaded.";
+  }
+
+  try {
+    datasetDrafts = await listDatasetDrafts();
+  } catch (error) {
+    datasetDraftLoadError =
+      error instanceof Error ? error.message : "Dataset drafts could not be loaded.";
   }
 
   try {
@@ -161,6 +177,18 @@ export default async function HomePage() {
             <RunLauncherForm datasets={datasets} registry={registry} />
           </>
         )}
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gap: "1.5rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          alignItems: "start",
+        }}
+      >
+        <DatasetDraftGenerator />
+        <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
       </section>
 
       {!datasetLoadError ? <RunList runs={runs} /> : null}

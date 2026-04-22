@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase11}"
+PHASE="${1:-phase13}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -28,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase11", health.json()
+    assert health.json()["phase"] == "phase13", health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 11", body
+    assert body["phase"]["current_phase"] == "Phase 13", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -593,6 +593,103 @@ with TestClient(app) as client:
     assert improvement_trace_compare_body["candidate"]["events"][1]["event_type"] == "final_output", improvement_trace_compare_body
 
     if os.environ["PHASE"] == "phase12":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    generated_draft = client.post(
+        "/api/v1/datasets/drafts/generate",
+        json={
+            "name": "Phase 13 Draft",
+            "prompt": "Generate refund and billing regression cases for support QA.",
+            "item_count": 3,
+            "tags": ["refunds", "billing"],
+        },
+    )
+    assert generated_draft.status_code == 201, generated_draft.text
+    generated_draft_body = generated_draft.json()
+    assert generated_draft_body["lifecycle_status"] == "draft", generated_draft_body
+    assert generated_draft_body["source_origin"] == "generated", generated_draft_body
+
+    runnable_datasets = client.get("/api/v1/datasets")
+    assert runnable_datasets.status_code == 200, runnable_datasets.text
+    assert all(
+        item["dataset_id"] != generated_draft_body["dataset_id"] for item in runnable_datasets.json()
+    ), runnable_datasets.json()
+
+    draft_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": generated_draft_body["dataset_id"],
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert draft_run.status_code == 400, draft_run.text
+
+    approved_draft = client.post(
+        f"/api/v1/datasets/{generated_draft_body['dataset_id']}/approve",
+        json={"reviewer_id": "reviewer_demo", "note": "Smoke approval for Phase 13."},
+    )
+    assert approved_draft.status_code == 200, approved_draft.text
+    approved_draft_body = approved_draft.json()
+    assert approved_draft_body["lifecycle_status"] == "published", approved_draft_body
+    assert approved_draft_body["snapshot_version"] == 2, approved_draft_body
+
+    promoted_case = client.post(
+        f"/api/v1/task-runs/{failed_task['task_run_id']}/promote",
+        json={
+            "target_dataset_id": "dataset_regression_promoted",
+            "target_dataset_name": "Promoted Regression Dataset",
+            "tags": ["regression", "refunds"],
+        },
+    )
+    assert promoted_case.status_code == 200, promoted_case.text
+    promoted_case_body = promoted_case.json()
+    assert promoted_case_body["promoted_item"]["source_origin"] == "promoted_from_failure", promoted_case_body
+    assert promoted_case_body["promoted_item"]["source_task_run_id"] == failed_task["task_run_id"], promoted_case_body
+
+    import copy
+
+    phase13_payload = copy.deepcopy(dataset_v2)
+    for index, item in enumerate(phase13_payload["items"]):
+        item["tags"] = ["subset", "refunds"] if index < 3 else ["control"]
+
+    tagged_upload = client.post(
+        "/api/v1/datasets",
+        files={
+            "file": (
+                "phase13_dataset.json",
+                json.dumps(phase13_payload).encode("utf-8"),
+                "application/json",
+            )
+        },
+    )
+    assert tagged_upload.status_code == 201, tagged_upload.text
+
+    subset_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
+            "dataset_tag_filter": ["subset"],
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert subset_run.status_code == 201, subset_run.text
+    subset_run_body = subset_run.json()
+    assert subset_run_body["total_tasks"] == 3, subset_run_body
+    assert subset_run_body["dataset_tag_filter"] == ["subset"], subset_run_body
+
+    subset_tasks = client.get(f"/api/v1/runs/{subset_run_body['run_id']}/tasks")
+    assert subset_tasks.status_code == 200, subset_tasks.text
+    assert subset_tasks.json()["total_count"] == 3, subset_tasks.json()
+    assert all("subset" in item["dataset_item_tags"] for item in subset_tasks.json()["items"]), subset_tasks.json()
+
+    if os.environ["PHASE"] == "phase13":
         print("Backend smoke checks passed.")
         raise SystemExit(0)
 

@@ -12,7 +12,10 @@ export type FailureReason =
   | "format_error"
   | "execution_failed";
 
-export type SourceType = "json" | "csv" | "fixture";
+export type SourceType = "json" | "csv" | "fixture" | "prompt" | "promotion";
+export type DatasetSourceOrigin = "manual" | "generated" | "promoted_from_failure";
+export type DatasetLifecycleStatus = "draft" | "published";
+export type DatasetApprovalStatus = "pending_review" | "approved";
 
 export type PhaseMarker = {
   current_phase: string;
@@ -44,6 +47,12 @@ export type Dataset = {
   description: string | null;
   schema_version: string;
   source_type: SourceType;
+  source_origin: DatasetSourceOrigin;
+  lifecycle_status: DatasetLifecycleStatus;
+  approval_status: DatasetApprovalStatus;
+  generated_prompt: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   latest_snapshot_id: string | null;
 };
 
@@ -52,6 +61,7 @@ export type DatasetSnapshot = {
   dataset_id: string;
   version_number: number;
   checksum: string;
+  parent_snapshot_id: string | null;
   created_at: string | null;
 };
 
@@ -64,6 +74,9 @@ export type DatasetItem = {
   expected_output: string | null;
   rubric_json: Record<string, unknown> | null;
   reference_context: string | null;
+  source_origin: DatasetSourceOrigin;
+  source_task_run_id: string | null;
+  tags: string[];
   metadata_json: Record<string, unknown> | null;
 };
 
@@ -82,6 +95,7 @@ export type EvalRun = {
   agent_version_id: string;
   dataset_id: string;
   dataset_snapshot_id: string | null;
+  dataset_tag_filter: string[];
   scorer_config_id: string;
   status: RunStatus;
   baseline: boolean;
@@ -95,6 +109,7 @@ export type EvalTaskRun = {
   task_run_id: string;
   run_id: string;
   dataset_item_id: string;
+  dataset_item_tags: string[];
   status: RunStatus;
   final_output: string | null;
   latency_ms: number | null;

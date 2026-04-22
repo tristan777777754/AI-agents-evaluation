@@ -11,6 +11,7 @@ export type RunCreateRequest = {
   dataset_id: string;
   agent_version_id: string;
   scorer_config_id: string;
+  dataset_tag_filter?: string[];
   adapter_type: string;
   adapter_config: Record<string, unknown>;
   experiment_tag: string | null;
@@ -30,6 +31,7 @@ export type RunTaskResult = {
   task_run_id: string;
   run_id: string;
   dataset_item_id: string;
+  dataset_item_tags: string[];
   status: RunStatus;
   input_text: string;
   category: string;

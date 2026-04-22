@@ -30,6 +30,7 @@ export function DatasetItemsTable({ datasetItems }: DatasetItemsTableProps) {
             <tr>
               <th style={{ textAlign: "left", padding: "0.75rem" }}>Item</th>
               <th style={{ textAlign: "left", padding: "0.75rem" }}>Category</th>
+              <th style={{ textAlign: "left", padding: "0.75rem" }}>Source / Tags</th>
               <th style={{ textAlign: "left", padding: "0.75rem" }}>Input</th>
               <th style={{ textAlign: "left", padding: "0.75rem" }}>Expected Output</th>
             </tr>
@@ -39,6 +40,14 @@ export function DatasetItemsTable({ datasetItems }: DatasetItemsTableProps) {
               <tr key={item.dataset_item_id} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.75rem", verticalAlign: "top" }}>{item.dataset_item_id}</td>
                 <td style={{ padding: "0.75rem", verticalAlign: "top" }}>{item.category}</td>
+                <td style={{ padding: "0.75rem", verticalAlign: "top" }}>
+                  <div style={{ display: "grid", gap: "0.25rem" }}>
+                    <span>{item.source_origin}</span>
+                    <span style={{ color: "var(--muted)" }}>
+                      {item.tags.length > 0 ? item.tags.join(", ") : "No tags"}
+                    </span>
+                  </div>
+                </td>
                 <td style={{ padding: "0.75rem", verticalAlign: "top" }}>{item.input_text}</td>
                 <td style={{ padding: "0.75rem", verticalAlign: "top" }}>
                   {item.expected_output ?? <span style={{ color: "var(--muted)" }}>No expected output</span>}

@@ -6,28 +6,37 @@ import io
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.models import DatasetItemRecord, DatasetRecord, DatasetSnapshotRecord
+from app.models import DatasetItemRecord, DatasetRecord, DatasetSnapshotRecord, EvalTaskRunRecord
 from app.schemas.contracts import (
+    DatasetApprovalStatus,
     DatasetItemSchema,
+    DatasetLifecycleStatus,
     DatasetSchema,
     DatasetSnapshotSchema,
+    DatasetSourceOrigin,
     SourceType,
 )
 from app.schemas.datasets import (
+    DatasetApprovalRequestSchema,
     DatasetChangedItemSchema,
     DatasetDetailSchema,
     DatasetDiffSchema,
+    DatasetDraftGenerateRequestSchema,
+    DatasetDraftListSchema,
     DatasetImportItemSchema,
     DatasetImportPayloadSchema,
     DatasetItemListSchema,
+    DatasetPromotionRequestSchema,
+    DatasetPromotionResultSchema,
     DatasetSnapshotListSchema,
     DatasetSummarySchema,
     DatasetValidationErrorSchema,
@@ -46,6 +55,12 @@ class NormalizedDatasetImport:
     items: list[DatasetItemSchema]
 
 
+def _utc_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(UTC).isoformat()
+
+
 def _slugify(value: str) -> str:
     cleaned = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
     return cleaned or "dataset"
@@ -57,6 +72,27 @@ def _generated_dataset_id(seed: str) -> str:
 
 def _generated_item_id(dataset_id: str, index: int) -> str:
     return f"{dataset_id}__item_{index:03d}"
+
+
+def _normalise_tags(raw_value: object | None) -> list[str]:
+    if raw_value is None or raw_value == "":
+        return []
+    if isinstance(raw_value, list):
+        values = raw_value
+    elif isinstance(raw_value, str):
+        values = [part.strip() for part in raw_value.split(",")]
+    else:
+        values = [str(raw_value)]
+
+    seen: set[str] = set()
+    tags: list[str] = []
+    for raw_tag in values:
+        tag = str(raw_tag).strip().lower()
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag)
+    return tags
 
 
 def _normalise_optional_json_field(
@@ -140,6 +176,7 @@ def _build_item(
         field="metadata_json",
         errors=errors,
     )
+    transformed["tags"] = _normalise_tags(transformed.get("tags"))
 
     try:
         item = DatasetImportItemSchema.model_validate(transformed)
@@ -334,6 +371,9 @@ def _normalise_import(
                 expected_output=item.expected_output,
                 rubric_json=item.rubric_json,
                 reference_context=item.reference_context,
+                source_origin=item.source_origin,
+                source_task_run_id=item.source_task_run_id,
+                tags=item.tags,
                 metadata_json=item.metadata_json,
             )
         )
@@ -356,6 +396,15 @@ def _snapshot_checksum(items: list[DatasetItemSchema]) -> str:
 
 def _snapshot_id(dataset_id: str, version_number: int) -> str:
     return f"{dataset_id}__snapshot_{version_number:03d}"
+
+
+def _next_snapshot_version(session: Session, dataset_id: str) -> int:
+    current_max_version = session.scalar(
+        select(func.max(DatasetSnapshotRecord.version_number)).where(
+            DatasetSnapshotRecord.dataset_id == dataset_id
+        )
+    )
+    return int(current_max_version or 0) + 1
 
 
 def _get_snapshot(
@@ -397,11 +446,53 @@ def _item_schema(record: DatasetItemRecord) -> DatasetItemSchema:
         expected_output=record.expected_output,
         rubric_json=record.rubric_json,
         reference_context=record.reference_context,
+        source_origin=DatasetSourceOrigin(record.source_origin),
+        source_task_run_id=record.source_task_run_id,
+        tags=list(record.tag_list_json or []),
         metadata_json=record.metadata_json,
     )
 
 
-def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> DatasetDetailSchema:
+def _persist_snapshot_items(
+    session: Session,
+    *,
+    dataset_id: str,
+    snapshot_id: str,
+    items: list[DatasetItemSchema],
+) -> None:
+    for index, item in enumerate(items, start=1):
+        session.add(
+            DatasetItemRecord(
+                dataset_item_id=item.dataset_item_id,
+                dataset_id=dataset_id,
+                dataset_snapshot_id=snapshot_id,
+                sort_index=index,
+                input_text=item.input_text,
+                category=item.category,
+                difficulty=item.difficulty,
+                expected_output=item.expected_output,
+                rubric_json=item.rubric_json,
+                reference_context=item.reference_context,
+                source_origin=item.source_origin.value,
+                source_task_run_id=item.source_task_run_id,
+                tag_list_json=list(item.tags),
+                metadata_json=item.metadata_json,
+            )
+        )
+
+
+def create_dataset(
+    session: Session,
+    normalized: NormalizedDatasetImport,
+    *,
+    source_origin: DatasetSourceOrigin = DatasetSourceOrigin.manual,
+    lifecycle_status: DatasetLifecycleStatus = DatasetLifecycleStatus.published,
+    approval_status: DatasetApprovalStatus = DatasetApprovalStatus.approved,
+    generated_prompt: str | None = None,
+    approved_by: str | None = None,
+    approved_at: datetime | None = None,
+    parent_snapshot_id: str | None = None,
+) -> DatasetDetailSchema:
     dataset_record = session.get(DatasetRecord, normalized.dataset.dataset_id)
     if dataset_record is None:
         dataset_record = DatasetRecord(
@@ -410,45 +501,42 @@ def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> Dat
             description=normalized.dataset.description,
             schema_version=normalized.dataset.schema_version,
             source_type=normalized.dataset.source_type.value,
+            source_origin=source_origin.value,
+            lifecycle_status=lifecycle_status.value,
+            approval_status=approval_status.value,
+            generated_prompt=generated_prompt,
+            approved_by=approved_by,
+            approved_at=approved_at,
         )
         session.add(dataset_record)
-        version_number = 1
     else:
         dataset_record.name = normalized.dataset.name
         dataset_record.description = normalized.dataset.description
         dataset_record.schema_version = normalized.dataset.schema_version
         dataset_record.source_type = normalized.dataset.source_type.value
-        current_max_version = session.scalar(
-            select(func.max(DatasetSnapshotRecord.version_number)).where(
-                DatasetSnapshotRecord.dataset_id == normalized.dataset.dataset_id
-            )
-        )
-        version_number = int(current_max_version or 0) + 1
+        dataset_record.source_origin = source_origin.value
+        dataset_record.lifecycle_status = lifecycle_status.value
+        dataset_record.approval_status = approval_status.value
+        dataset_record.generated_prompt = generated_prompt
+        dataset_record.approved_by = approved_by
+        dataset_record.approved_at = approved_at
+
+    version_number = _next_snapshot_version(session, normalized.dataset.dataset_id)
 
     snapshot_record = DatasetSnapshotRecord(
         dataset_snapshot_id=_snapshot_id(normalized.dataset.dataset_id, version_number),
         dataset_id=normalized.dataset.dataset_id,
         version_number=version_number,
         checksum=_snapshot_checksum(normalized.items),
+        parent_snapshot_id=parent_snapshot_id,
     )
     session.add(snapshot_record)
-
-    for index, item in enumerate(normalized.items, start=1):
-        session.add(
-            DatasetItemRecord(
-                dataset_item_id=item.dataset_item_id,
-                dataset_id=normalized.dataset.dataset_id,
-                dataset_snapshot_id=snapshot_record.dataset_snapshot_id,
-                sort_index=index,
-                input_text=item.input_text,
-                category=item.category,
-                difficulty=item.difficulty,
-                expected_output=item.expected_output,
-                rubric_json=item.rubric_json,
-                reference_context=item.reference_context,
-                metadata_json=item.metadata_json,
-            )
-        )
+    _persist_snapshot_items(
+        session,
+        dataset_id=normalized.dataset.dataset_id,
+        snapshot_id=snapshot_record.dataset_snapshot_id,
+        items=normalized.items,
+    )
 
     try:
         session.commit()
@@ -468,12 +556,18 @@ def create_dataset(session: Session, normalized: NormalizedDatasetImport) -> Dat
     )
 
 
-def list_datasets(session: Session) -> list[DatasetSummarySchema]:
+def list_datasets(
+    session: Session,
+    *,
+    include_drafts: bool = False,
+) -> list[DatasetSummarySchema]:
     datasets = session.execute(
         select(DatasetRecord).order_by(DatasetRecord.created_at.desc())
     ).scalars()
     summaries: list[DatasetSummarySchema] = []
     for dataset in datasets:
+        if not include_drafts and dataset.lifecycle_status == DatasetLifecycleStatus.draft.value:
+            continue
         item_count = 0
         if dataset.latest_snapshot_id is not None:
             item_count = int(
@@ -491,11 +585,26 @@ def list_datasets(session: Session) -> list[DatasetSummarySchema]:
                 description=dataset.description,
                 schema_version=dataset.schema_version,
                 source_type=SourceType(dataset.source_type),
+                source_origin=DatasetSourceOrigin(dataset.source_origin),
+                lifecycle_status=DatasetLifecycleStatus(dataset.lifecycle_status),
+                approval_status=DatasetApprovalStatus(dataset.approval_status),
+                generated_prompt=dataset.generated_prompt,
+                approved_by=dataset.approved_by,
+                approved_at=_utc_iso(dataset.approved_at),
                 latest_snapshot_id=dataset.latest_snapshot_id,
                 item_count=item_count,
             )
         )
     return summaries
+
+
+def list_dataset_drafts(session: Session) -> DatasetDraftListSchema:
+    drafts = [
+        dataset
+        for dataset in list_datasets(session, include_drafts=True)
+        if dataset.lifecycle_status == DatasetLifecycleStatus.draft
+    ]
+    return DatasetDraftListSchema(total_count=len(drafts), items=drafts)
 
 
 def get_dataset_detail(
@@ -529,6 +638,12 @@ def get_dataset_detail(
         description=dataset.description,
         schema_version=dataset.schema_version,
         source_type=SourceType(dataset.source_type),
+        source_origin=DatasetSourceOrigin(dataset.source_origin),
+        lifecycle_status=DatasetLifecycleStatus(dataset.lifecycle_status),
+        approval_status=DatasetApprovalStatus(dataset.approval_status),
+        generated_prompt=dataset.generated_prompt,
+        approved_by=dataset.approved_by,
+        approved_at=_utc_iso(dataset.approved_at),
         latest_snapshot_id=dataset.latest_snapshot_id,
         snapshot_id=snapshot.dataset_snapshot_id,
         snapshot_version=snapshot.version_number,
@@ -572,6 +687,7 @@ def list_dataset_snapshots(session: Session, dataset_id: str) -> DatasetSnapshot
                 dataset_id=record.dataset_id,
                 version_number=record.version_number,
                 checksum=record.checksum,
+                parent_snapshot_id=record.parent_snapshot_id,
                 created_at=record.created_at.isoformat() if record.created_at else None,
             )
             for record in records
@@ -625,4 +741,211 @@ def get_dataset_diff(
         added=added,
         removed=removed,
         changed=changed,
+    )
+
+
+def generate_dataset_draft(
+    session: Session,
+    payload: DatasetDraftGenerateRequestSchema,
+) -> DatasetDetailSchema:
+    dataset_id = _generated_dataset_id(payload.name)
+    prompt_tags = _normalise_tags(payload.tags)
+    prompt_terms = _normalise_tags(payload.prompt)
+    effective_tags = prompt_tags or prompt_terms[:3] or ["generated"]
+
+    items: list[DatasetItemSchema] = []
+    for index in range(1, payload.item_count + 1):
+        category = effective_tags[(index - 1) % len(effective_tags)]
+        items.append(
+            DatasetItemSchema(
+                dataset_item_id=f"{dataset_id}__draft_{index:03d}",
+                dataset_id=dataset_id,
+                input_text=(
+                    f"{payload.prompt.strip()} Scenario {index}: "
+                    "describe the correct agent response."
+                ),
+                category=category,
+                difficulty="medium",
+                expected_output=f"Draft benchmark answer {index} for {payload.name}.",
+                rubric_json={"max_steps": 2, "quality_focus": effective_tags[:2]},
+                source_origin=DatasetSourceOrigin.generated,
+                tags=list(dict.fromkeys(["generated", category, *effective_tags])),
+                metadata_json={
+                    "generation_prompt": payload.prompt,
+                    "draft_index": index,
+                },
+            )
+        )
+
+    normalized = NormalizedDatasetImport(
+        dataset=DatasetSchema(
+            dataset_id=dataset_id,
+            name=payload.name,
+            description=payload.description,
+            schema_version="1.0",
+            source_type=SourceType.prompt,
+            source_origin=DatasetSourceOrigin.generated,
+            lifecycle_status=DatasetLifecycleStatus.draft,
+            approval_status=DatasetApprovalStatus.pending_review,
+            generated_prompt=payload.prompt,
+        ),
+        items=items,
+    )
+    return create_dataset(
+        session,
+        normalized,
+        source_origin=DatasetSourceOrigin.generated,
+        lifecycle_status=DatasetLifecycleStatus.draft,
+        approval_status=DatasetApprovalStatus.pending_review,
+        generated_prompt=payload.prompt,
+    )
+
+
+def approve_dataset_draft(
+    session: Session,
+    dataset_id: str,
+    payload: DatasetApprovalRequestSchema,
+) -> DatasetDetailSchema:
+    dataset = session.get(DatasetRecord, dataset_id)
+    if dataset is None:
+        raise LookupError(dataset_id)
+    if dataset.lifecycle_status != DatasetLifecycleStatus.draft.value:
+        raise ValueError("Only draft datasets can be approved.")
+    if dataset.latest_snapshot_id is None:
+        raise LookupError("Draft dataset has no snapshot to approve.")
+
+    latest_snapshot = session.get(DatasetSnapshotRecord, dataset.latest_snapshot_id)
+    if latest_snapshot is None:
+        raise LookupError("Draft snapshot not found.")
+
+    normalized = NormalizedDatasetImport(
+        dataset=DatasetSchema(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            description=dataset.description,
+            schema_version=dataset.schema_version,
+            source_type=SourceType(dataset.source_type),
+            source_origin=DatasetSourceOrigin(dataset.source_origin),
+            lifecycle_status=DatasetLifecycleStatus.published,
+            approval_status=DatasetApprovalStatus.approved,
+            generated_prompt=dataset.generated_prompt,
+        ),
+        items=[
+            _item_schema(record)
+            for record in _snapshot_items(session, latest_snapshot.dataset_snapshot_id)
+        ],
+    )
+    approved_detail = create_dataset(
+        session,
+        normalized,
+        source_origin=DatasetSourceOrigin(dataset.source_origin),
+        lifecycle_status=DatasetLifecycleStatus.published,
+        approval_status=DatasetApprovalStatus.approved,
+        generated_prompt=dataset.generated_prompt,
+        approved_by=payload.reviewer_id,
+        approved_at=datetime.now(UTC),
+        parent_snapshot_id=latest_snapshot.dataset_snapshot_id,
+    )
+    if payload.note:
+        approved_snapshot = session.get(DatasetSnapshotRecord, approved_detail.snapshot_id)
+        if approved_snapshot is not None:
+            for item in session.execute(
+                select(DatasetItemRecord).where(
+                    DatasetItemRecord.dataset_snapshot_id == approved_snapshot.dataset_snapshot_id
+                )
+            ).scalars():
+                metadata = dict(item.metadata_json or {})
+                metadata["approval_note"] = payload.note
+                item.metadata_json = metadata
+            session.commit()
+    return get_dataset_detail(session, dataset_id)
+
+
+def promote_failed_case(
+    session: Session,
+    task_run_id: str,
+    payload: DatasetPromotionRequestSchema,
+) -> DatasetPromotionResultSchema:
+    statement = (
+        select(EvalTaskRunRecord)
+        .where(EvalTaskRunRecord.task_run_id == task_run_id)
+        .options(selectinload(EvalTaskRunRecord.review))
+        .options(selectinload(EvalTaskRunRecord.trace))
+    )
+    task_run = session.execute(statement).scalar_one_or_none()
+    if task_run is None:
+        raise LookupError("Task run not found.")
+    if task_run.review is None or not task_run.review.verdict:
+        raise ValueError("Failed-case promotion requires an existing reviewer verdict.")
+
+    dataset_id = payload.target_dataset_id or "dataset_regression_promoted"
+    dataset_name = payload.target_dataset_name or "Promoted Regression Dataset"
+    dataset = session.get(DatasetRecord, dataset_id)
+    existing_items: list[DatasetItemSchema] = []
+    parent_snapshot_id: str | None = None
+    if dataset is not None and dataset.latest_snapshot_id:
+        parent_snapshot_id = dataset.latest_snapshot_id
+        existing_items = [
+            _item_schema(record) for record in _snapshot_items(session, dataset.latest_snapshot_id)
+        ]
+
+    tag_candidates = _normalise_tags(
+        [
+            "regression",
+            task_run.category,
+            task_run.review.failure_label or "",
+            *(payload.tags or []),
+        ]
+    )
+    promoted_item = DatasetItemSchema(
+        dataset_item_id=f"{dataset_id}__promoted_{len(existing_items) + 1:03d}",
+        dataset_id=dataset_id,
+        input_text=task_run.input_text,
+        category=task_run.category,
+        difficulty=task_run.difficulty,
+        expected_output=task_run.expected_output,
+        source_origin=DatasetSourceOrigin.promoted_from_failure,
+        source_task_run_id=task_run.task_run_id,
+        tags=tag_candidates,
+        metadata_json={
+            **(task_run.metadata_json or {}),
+            "source_run_id": task_run.run_id,
+            "source_review_id": task_run.review.review_id,
+            "promoted_from_task_run_id": task_run.task_run_id,
+            "promotion_failure_label": task_run.review.failure_label,
+        },
+    )
+    normalized = NormalizedDatasetImport(
+        dataset=DatasetSchema(
+            dataset_id=dataset_id,
+            name=dataset_name,
+            description="Regression cases promoted from reviewed task failures.",
+            schema_version="1.0",
+            source_type=SourceType.promotion,
+            source_origin=DatasetSourceOrigin.promoted_from_failure,
+            lifecycle_status=(
+                DatasetLifecycleStatus.draft
+                if payload.create_as_draft
+                else DatasetLifecycleStatus.published
+            ),
+            approval_status=(
+                DatasetApprovalStatus.pending_review
+                if payload.create_as_draft
+                else DatasetApprovalStatus.approved
+            ),
+        ),
+        items=[*existing_items, promoted_item],
+    )
+    detail = create_dataset(
+        session,
+        normalized,
+        source_origin=DatasetSourceOrigin.promoted_from_failure,
+        lifecycle_status=normalized.dataset.lifecycle_status,
+        approval_status=normalized.dataset.approval_status,
+        parent_snapshot_id=parent_snapshot_id,
+    )
+    return DatasetPromotionResultSchema(
+        dataset=detail,
+        snapshot_id=detail.snapshot_id,
+        promoted_item=promoted_item,
     )
