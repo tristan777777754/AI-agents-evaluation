@@ -3,11 +3,11 @@
 import { useState, type ReactNode } from "react";
 
 type WorkbenchTabsProps = {
+  registryPanel?: ReactNode;
   datasetsPanel: ReactNode;
   launchPanel?: ReactNode;
   resultsPanel: ReactNode;
   comparePanel: ReactNode;
-  registryPanel?: ReactNode;
   draftsPanel: ReactNode;
   governancePanel: ReactNode;
 };
@@ -21,18 +21,26 @@ type TabConfig = {
 };
 
 export function WorkbenchTabs({
+  registryPanel,
   datasetsPanel,
   launchPanel,
   resultsPanel,
   comparePanel,
-  registryPanel,
   draftsPanel,
   governancePanel,
 }: WorkbenchTabsProps) {
   const tabs: TabConfig[] = [
     {
+      id: "agent-setup",
+      label: "1. Agent Setup",
+      title: "Define what you want to evaluate",
+      description:
+        "Create or inspect the agent and immutable agent versions before running evaluations. A compare only makes sense when each run is tied to a clear version snapshot, model, prompt hash, and configuration.",
+      content: registryPanel,
+    },
+    {
       id: "datasets",
-      label: "1. Datasets",
+      label: "2. Datasets",
       title: "Prepare the test set",
       description:
         "Upload or inspect the questions the agent will be evaluated against. Start here when the workspace has no dataset yet, or when you need to confirm item count, schema, and snapshots.",
@@ -40,7 +48,7 @@ export function WorkbenchTabs({
     },
     {
       id: "runs",
-      label: "2. Run",
+      label: "3. Run",
       title: "Launch an evaluation",
       description:
         "Choose the dataset, agent version, scorer, and run settings. Use quick run when defaults are configured; use full launch when you need explicit control over dataset, scorer, tags, or sampling.",
@@ -48,7 +56,7 @@ export function WorkbenchTabs({
     },
     {
       id: "results",
-      label: "3. Results",
+      label: "4. Results",
       title: "Read the run outcome",
       description:
         "Use this tab after a run finishes. It shows persisted summary metrics, recent run history, and links into task-level traces.",
@@ -56,19 +64,11 @@ export function WorkbenchTabs({
     },
     {
       id: "compare",
-      label: "4. Compare",
+      label: "5. Compare",
       title: "Compare two runs",
       description:
         "Pick a completed baseline run and a completed candidate run from the same dataset. The compare view highlights metric deltas, regressions, improvements, and trace differences.",
       content: comparePanel,
-    },
-    {
-      id: "registry",
-      label: "5. Registry",
-      title: "Manage versions and defaults",
-      description:
-        "Use this when you need a new agent version, a new agent entry, or default dataset/scorer settings for quick runs. Existing run history remains tied to immutable version snapshots.",
-      content: registryPanel,
     },
     {
       id: "drafts",

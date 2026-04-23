@@ -156,7 +156,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
 
         <div className="hero-actions" aria-label="Primary workbench actions">
-          <span>Use the tabs below from left to right.</span>
+          <span>Start by defining an agent version, then run it against a dataset.</span>
         </div>
       </section>
 
@@ -199,6 +199,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </section>
 
       <WorkbenchTabs
+        registryPanel={
+          !datasetLoadError ? <RegistryManager datasets={datasets} registry={registry} /> : null
+        }
         datasetsPanel={
           <div className="two-column">
             <DatasetUploadForm />
@@ -241,9 +244,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <CompareLauncherForm runs={runPage.items} />
             <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
           </div>
-        }
-        registryPanel={
-          !datasetLoadError ? <RegistryManager datasets={datasets} registry={registry} /> : null
         }
         draftsPanel={
           <div className="two-column">

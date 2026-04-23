@@ -106,13 +106,16 @@ export function RegistryManager({ datasets, registry }: RegistryManagerProps) {
             textTransform: "uppercase",
           }}
         >
-          Registry
+          Agent Setup
         </p>
-        <h2 style={{ margin: "0.35rem 0 0" }}>Runtime agents, versions, and defaults</h2>
+        <h2 style={{ margin: "0.35rem 0 0" }}>Agents, immutable versions, and run defaults</h2>
       </div>
 
       <form action={handleDefaultsSubmit} style={{ display: "grid", gap: "0.75rem" }}>
         <strong>Quick-run defaults</strong>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          These defaults let the Run tab start a quick evaluation without asking for every field.
+        </p>
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Default dataset</span>
           <select
@@ -151,6 +154,10 @@ export function RegistryManager({ datasets, registry }: RegistryManagerProps) {
 
       <form action={handleAgentSubmit} style={{ display: "grid", gap: "0.75rem" }}>
         <strong>Create agent</strong>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Create the logical agent once, then add immutable versions for each prompt/model/config
+          snapshot you want to evaluate.
+        </p>
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Agent ID</span>
           <input name="agent_id" type="text" placeholder="agent_support_qa" disabled={savingAgent} />
@@ -175,6 +182,10 @@ export function RegistryManager({ datasets, registry }: RegistryManagerProps) {
 
       <form action={handleVersionSubmit} style={{ display: "grid", gap: "0.75rem" }}>
         <strong>Create immutable version</strong>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Versions are what runs and comparisons attach to. Create a new version whenever the
+          prompt, model, or adapter configuration changes.
+        </p>
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Agent</span>
           <select name="agent_id" defaultValue={registry.agents[0]?.agent_id ?? ""} disabled={savingVersion}>
