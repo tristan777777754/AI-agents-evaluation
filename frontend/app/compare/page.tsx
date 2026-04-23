@@ -12,6 +12,27 @@ type ComparePageProps = {
   }>;
 };
 
+function formatBackendError(error: unknown): string {
+  if (error instanceof BackendApiError) {
+    if (
+      typeof error.detail === "object" &&
+      error.detail !== null &&
+      "detail" in error.detail
+    ) {
+      const detail = error.detail.detail;
+      if (typeof detail === "string") {
+        return detail;
+      }
+      return JSON.stringify(detail);
+    }
+    if (typeof error.detail === "string") {
+      return error.detail;
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Comparison could not be loaded.";
+}
+
 export default async function ComparePage({ searchParams }: ComparePageProps) {
   const {
     baseline_run_id: baselineRunId,
@@ -85,10 +106,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       </main>
     );
   } catch (error) {
-    const message =
-      error instanceof BackendApiError || error instanceof Error
-        ? error.message
-        : "Comparison could not be loaded.";
+    const message = formatBackendError(error);
 
     return (
       <main
