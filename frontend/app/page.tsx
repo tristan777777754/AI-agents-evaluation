@@ -31,6 +31,23 @@ import {
 
 const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://localhost:8000";
 
+function StatusBadge({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "neutral" | "ready" | "attention";
+}) {
+  return (
+    <article className={`status-card status-card--${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
 type HomePageProps = {
   searchParams: Promise<{
     runs_page?: string;
@@ -126,73 +143,69 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   return (
-    <main
-      style={{
-        padding: "3rem 1.5rem 4rem",
-        display: "grid",
-        gap: "2rem",
-        maxWidth: "1120px",
-        margin: "0 auto",
-      }}
-    >
-      <section
-        style={{
-          display: "grid",
-          gap: "1rem",
-          padding: "2rem",
-          borderRadius: "28px",
-          background:
-            "linear-gradient(135deg, rgba(255,250,245,0.94), rgba(255,239,222,0.9))",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow)",
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            color: "var(--accent)",
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-          }}
-        >
-          Agent Quality Engineering
-        </p>
-        <h1 style={{ margin: 0, fontSize: "clamp(2.4rem, 6vw, 5rem)", lineHeight: 0.95 }}>
-          Agent Evaluation Workbench
-        </h1>
-        <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 16 formalizes generator, agent, and judge governance so teams can audit who scored
-          what, reject risky self-judge setups, and inspect cross-judge consistency without
-          changing the existing compare path.
-        </p>
+    <main className="home-shell">
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <p className="eyebrow">Agent Quality Engineering</p>
+          <h1>Evaluate an agent version against real datasets</h1>
+          <p>
+            Import a dataset, run a persisted evaluation, inspect traces, compare versions, and
+            send uncertain cases to review.
+          </p>
+        </div>
+
+        <nav className="hero-actions" aria-label="Primary workbench actions">
+          <a href="#datasets">Upload dataset</a>
+          <a href="#launch-run">Start run</a>
+          <a href="#results">Open results</a>
+          <a href="#compare-review">Compare or review</a>
+        </nav>
       </section>
 
-      <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
-
-      <CalibrationPanel report={calibrationReport} loadError={calibrationLoadError} />
-
-      <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
-
-      <section
-        style={{
-          display: "grid",
-          gap: "1.5rem",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          alignItems: "start",
-        }}
-      >
-        <CompareLauncherForm runs={runPage.items} />
-        <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
+      <section className="workflow-panel" aria-labelledby="workflow-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Start Here</p>
+          <h2 id="workflow-heading">The evaluation path</h2>
+        </div>
+        <div className="workflow-steps">
+          <a href="#datasets" className="workflow-step">
+            <span>1</span>
+            <strong>Import dataset</strong>
+            <small>Validated JSON or CSV items become persisted dataset records.</small>
+          </a>
+          <a href="#launch-run" className="workflow-step">
+            <span>2</span>
+            <strong>Launch run</strong>
+            <small>Select an agent version, scorer, adapter mode, and optional sampling.</small>
+          </a>
+          <a href="#results" className="workflow-step">
+            <span>3</span>
+            <strong>Inspect outcome</strong>
+            <small>Open task results, traces, dashboard metrics, compare, and review queue.</small>
+          </a>
+        </div>
       </section>
 
-      <section
-        style={{
-          display: "grid",
-          gap: "1.5rem",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          alignItems: "start",
-        }}
-      >
+      <section className="status-grid" aria-label="Current workspace status">
+        <StatusBadge label="Datasets" value={datasetLoadError ? "Unavailable" : datasets.length} />
+        <StatusBadge label="Runs" value={datasetLoadError ? "Unavailable" : runPage.total_count} />
+        <StatusBadge
+          label="Agent versions"
+          value={datasetLoadError ? "Unavailable" : registry.agent_versions.length}
+        />
+        <StatusBadge
+          label="Review pending"
+          value={reviewQueueLoadError ? "Unavailable" : reviewQueue?.pending_count ?? 0}
+          tone={(reviewQueue?.pending_count ?? 0) > 0 ? "attention" : "ready"}
+        />
+      </section>
+
+      <section id="datasets" className="section-stack" aria-labelledby="datasets-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Step 1</p>
+          <h2 id="datasets-heading">Datasets</h2>
+        </div>
+        <div className="two-column">
         <DatasetUploadForm />
         {datasetLoadError ? (
           <section
@@ -209,34 +222,78 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <p style={{ margin: 0 }}>{datasetLoadError}</p>
           </section>
         ) : (
-          <>
-            <DatasetList datasets={datasets} />
-            <RunLauncherForm datasets={datasets} registry={registry} />
-          </>
+          <DatasetList datasets={datasets} />
         )}
-      </section>
-
-      {!datasetLoadError ? <RegistryManager datasets={datasets} registry={registry} /> : null}
-
-      <section
-        style={{
-          display: "grid",
-          gap: "1.5rem",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          alignItems: "start",
-        }}
-      >
-        <DatasetDraftGenerator />
-        <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
+        </div>
       </section>
 
       {!datasetLoadError ? (
-        <RunList
-          runPage={runPage}
-          registry={registry}
-          filters={{ status: runsStatus, agent_version_id: runsAgentVersionId }}
-        />
+        <section id="launch-run" className="section-stack" aria-labelledby="launch-heading">
+          <div className="section-heading">
+            <p className="eyebrow">Step 2</p>
+            <h2 id="launch-heading">Run evaluation</h2>
+          </div>
+          <RunLauncherForm datasets={datasets} registry={registry} />
+        </section>
       ) : null}
+
+      <section id="results" className="section-stack" aria-labelledby="results-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Step 3</p>
+          <h2 id="results-heading">Results</h2>
+        </div>
+        <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
+        {!datasetLoadError ? (
+          <RunList
+            runPage={runPage}
+            registry={registry}
+            filters={{ status: runsStatus, agent_version_id: runsAgentVersionId }}
+          />
+        ) : null}
+      </section>
+
+      <section id="compare-review" className="section-stack" aria-labelledby="compare-review-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Decision Support</p>
+          <h2 id="compare-review-heading">Compare and review</h2>
+        </div>
+        <div className="two-column">
+          <CompareLauncherForm runs={runPage.items} />
+          <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
+        </div>
+      </section>
+
+      {!datasetLoadError ? (
+        <section id="registry" className="section-stack" aria-labelledby="registry-heading">
+          <div className="section-heading">
+            <p className="eyebrow">Configuration</p>
+            <h2 id="registry-heading">Registry and defaults</h2>
+          </div>
+          <RegistryManager datasets={datasets} registry={registry} />
+        </section>
+      ) : null}
+
+      <section className="section-stack" aria-labelledby="dataset-flywheel-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Dataset Flywheel</p>
+          <h2 id="dataset-flywheel-heading">Drafts and promotion</h2>
+        </div>
+        <div className="two-column">
+        <DatasetDraftGenerator />
+        <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
+        </div>
+      </section>
+
+      <section className="section-stack" aria-labelledby="governance-heading">
+        <div className="section-heading">
+          <p className="eyebrow">Governance</p>
+          <h2 id="governance-heading">Contracts and scorer credibility</h2>
+        </div>
+        <div className="two-column">
+          <CalibrationPanel report={calibrationReport} loadError={calibrationLoadError} />
+          <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
+        </div>
+      </section>
     </main>
   );
 }
