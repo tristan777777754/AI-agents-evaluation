@@ -128,6 +128,12 @@ export function RunList({ runPage, registry, filters }: RunListProps) {
                 Dataset {run.dataset_id} · snapshot {run.dataset_snapshot_id ?? "n/a"} · Agent{" "}
                 {run.agent_version_id}
               </span>
+              {run.sampling ? (
+                <span style={{ color: "var(--muted)" }}>
+                  Sampling group {run.sampling.group_id} · sample {run.sampling.sample_index}/
+                  {run.sampling.sample_count}
+                </span>
+              ) : null}
               {run.notes ? <span style={{ color: "var(--muted)" }}>{run.notes}</span> : null}
             </Link>
           ))}

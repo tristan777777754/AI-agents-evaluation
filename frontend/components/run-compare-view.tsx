@@ -135,6 +135,62 @@ export function RunCompareView({
           </span>
         </section>
 
+        {comparison.sampling ? (
+          <section
+            style={{
+              display: "grid",
+              gap: "0.75rem",
+              padding: "1rem",
+              borderRadius: "18px",
+              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,0.72)",
+            }}
+          >
+            <strong>Sampling interpretation: {comparison.sampling.interpretation.replaceAll("_", " ")}</strong>
+            <span style={{ color: "var(--muted)" }}>{comparison.sampling.notes}</span>
+            <div
+              style={{
+                display: "grid",
+                gap: "1rem",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}
+            >
+              {[
+                { label: "Baseline", value: comparison.sampling.baseline },
+                { label: "Candidate", value: comparison.sampling.candidate },
+              ].map((entry) => (
+                <article
+                  key={entry.label}
+                  style={{
+                    display: "grid",
+                    gap: "0.35rem",
+                    padding: "0.9rem 1rem",
+                    borderRadius: "16px",
+                    border: "1px solid var(--border)",
+                    background: "rgba(250,248,245,0.88)",
+                  }}
+                >
+                  <strong>{entry.label}</strong>
+                  <span>
+                    {entry.value.success_rate_mean == null ? "N/A" : `${entry.value.success_rate_mean}% mean`} ·{" "}
+                    {entry.value.success_rate_stddev == null
+                      ? "N/A"
+                      : `${entry.value.success_rate_stddev} pp stddev`}
+                  </span>
+                  <span>
+                    Consistency{" "}
+                    {entry.value.consistency_rate == null ? "N/A" : `${entry.value.consistency_rate}%`}
+                  </span>
+                  <span style={{ color: "var(--muted)" }}>
+                    {entry.value.completed_sample_count}/{entry.value.sample_count} samples ·{" "}
+                    {entry.value.is_stable ? "stable" : "variable"}
+                  </span>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section
           style={{
             display: "grid",

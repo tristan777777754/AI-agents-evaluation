@@ -53,6 +53,7 @@ describe("phase 6 compare and review contracts", () => {
           experiment_tag: "candidate-exp",
         },
       },
+      sampling: null,
       category_deltas: [
         {
           category: "refund_policy",

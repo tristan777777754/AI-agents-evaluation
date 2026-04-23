@@ -53,6 +53,7 @@ describe("phase 11 credibility contracts", () => {
           experiment_tag: null,
         },
       },
+      sampling: null,
       category_deltas: [],
       improvements: [],
       regressions: [],

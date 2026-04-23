@@ -4,17 +4,17 @@ const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://local
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 14",
+    current_phase: "Phase 15",
     scope: [
-      "database-backed registry CRUD with immutable agent version snapshots",
-      "quick-run defaults and additive auto-compare convenience paths",
-      "real run progress polling sourced from persisted task completion state",
-      "pagination and basic filtering for runs, dataset items, and review queue views",
+      "repeated-run sampling grouped by additive sample metadata",
+      "summary metrics that expose mean performance, variance, and consistency",
+      "compare interpretation that distinguishes stable and unstable movement",
+      "deterministic replay coverage preserved alongside sampling flows",
     ],
     non_goals: [
-      "reliability sampling or repeated-run variance metrics",
-      "phase-15+ multi-model governance work",
-      "mutating existing agent version snapshots after creation",
+      "changing canonical run statuses or replacing single-run contracts",
+      "phase-16+ multi-model governance work",
+      "probabilistic smoke tests that depend on uncontrolled randomness",
       "breaking existing compare semantics or core entity names",
     ],
   },
@@ -93,6 +93,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "baseline",
       "experiment_tag",
       "notes",
+      "sampling",
       "started_at",
       "completed_at",
     ],

@@ -5,6 +5,26 @@ from pydantic import BaseModel
 from app.schemas.contracts import FailureReason, RunStatus
 
 
+class SamplingAggregateMetricSchema(BaseModel):
+    mean: float | None = None
+    stddev: float | None = None
+    variance: float | None = None
+    min: float | None = None
+    max: float | None = None
+
+
+class RunSamplingSummarySchema(BaseModel):
+    group_id: str
+    sample_index: int
+    sample_count: int
+    completed_sample_count: int
+    sample_run_ids: list[str]
+    consistency_rate: float | None = None
+    success_rate: SamplingAggregateMetricSchema
+    average_latency_ms: SamplingAggregateMetricSchema
+    total_cost: SamplingAggregateMetricSchema
+
+
 class DashboardCategorySummarySchema(BaseModel):
     category: str
     total_tasks: int
@@ -43,6 +63,7 @@ class RunDashboardSummarySchema(BaseModel):
     success_rate: float
     average_latency_ms: float | None = None
     total_cost: float = 0.0
+    sampling: RunSamplingSummarySchema | None = None
     category_breakdown: list[DashboardCategorySummarySchema]
     failure_breakdown: list[DashboardFailureSummarySchema]
     failed_cases: list[DashboardFailedCaseSchema]

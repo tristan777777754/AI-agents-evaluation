@@ -161,9 +161,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 11 adds credibility signals on top of calibrated scoring: judge-backed and
-          rubric-backed scoring, significance-aware compare, and release-facing labels that
-          distinguish directional movement from statistically defensible change.
+          Phase 15 adds reliability sampling on top of the existing compare path so operators can
+          separate stable improvements from unstable variance without losing deterministic replay.
         </p>
       </section>
 

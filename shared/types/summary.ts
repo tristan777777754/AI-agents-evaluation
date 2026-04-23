@@ -1,5 +1,25 @@
 import type { FailureReason, RunStatus } from "./contracts";
 
+export type SamplingAggregateMetric = {
+  mean: number | null;
+  stddev: number | null;
+  variance: number | null;
+  min: number | null;
+  max: number | null;
+};
+
+export type RunSamplingSummary = {
+  group_id: string;
+  sample_index: number;
+  sample_count: number;
+  completed_sample_count: number;
+  sample_run_ids: string[];
+  consistency_rate: number | null;
+  success_rate: SamplingAggregateMetric;
+  average_latency_ms: SamplingAggregateMetric;
+  total_cost: SamplingAggregateMetric;
+};
+
 export type DashboardCategorySummary = {
   category: string;
   total_tasks: number;
@@ -38,6 +58,7 @@ export type RunDashboardSummary = {
   success_rate: number;
   average_latency_ms: number | null;
   total_cost: number;
+  sampling: RunSamplingSummary | null;
   category_breakdown: DashboardCategorySummary[];
   failure_breakdown: DashboardFailureSummary[];
   failed_cases: DashboardFailedCase[];

@@ -17,9 +17,12 @@ from app.schemas.compare import (
     CompareLineageSchema,
     CompareMetricDeltaSchema,
     CompareRunLineageSchema,
+    CompareSamplingAssessmentSchema,
+    CompareSamplingEvidenceSchema,
     RunComparisonSchema,
 )
 from app.schemas.contracts import FailureReason, RunStatus
+from app.schemas.summary import RunSamplingSummarySchema
 from app.services.scoring import normal_cdf
 from app.services.summary import get_run_dashboard_summary
 
@@ -76,6 +79,80 @@ def _run_lineage_schema(run: EvalRunRecord) -> CompareRunLineageSchema:
         scorer_snapshot_hash=_snapshot_hash(run.scorer_config_snapshot_json),
         baseline=run.baseline,
         experiment_tag=run.experiment_tag,
+    )
+
+
+def _sampling_evidence(
+    run: EvalRunRecord,
+    success_rate: float | None,
+    sampling_summary: RunSamplingSummarySchema | None,
+) -> CompareSamplingEvidenceSchema:
+    sampling = sampling_summary
+    if sampling is None:
+        return CompareSamplingEvidenceSchema(
+            group_id=None,
+            representative_run_id=run.run_id,
+            sample_count=1,
+            completed_sample_count=1,
+            sample_run_ids=[run.run_id],
+            success_rate_mean=success_rate,
+            success_rate_stddev=0.0 if success_rate is not None else None,
+            success_rate_variance=0.0 if success_rate is not None else None,
+            consistency_rate=100.0 if success_rate is not None else None,
+            is_stable=True,
+        )
+
+    success_metric = sampling.success_rate
+    success_stddev = success_metric.stddev
+    consistency_rate = sampling.consistency_rate
+    is_stable = (success_stddev or 0.0) == 0.0 and (consistency_rate or 0.0) == 100.0
+    return CompareSamplingEvidenceSchema(
+        group_id=sampling.group_id,
+        representative_run_id=run.run_id,
+        sample_count=sampling.sample_count,
+        completed_sample_count=sampling.completed_sample_count,
+        sample_run_ids=list(sampling.sample_run_ids),
+        success_rate_mean=success_metric.mean,
+        success_rate_stddev=success_stddev,
+        success_rate_variance=success_metric.variance,
+        consistency_rate=consistency_rate,
+        is_stable=is_stable,
+    )
+
+
+def _sampling_assessment(
+    baseline_run: EvalRunRecord,
+    candidate_run: EvalRunRecord,
+    baseline_success_rate: float | None,
+    candidate_success_rate: float | None,
+    baseline_sampling: RunSamplingSummarySchema | None,
+    candidate_sampling: RunSamplingSummarySchema | None,
+) -> CompareSamplingAssessmentSchema:
+    baseline = _sampling_evidence(baseline_run, baseline_success_rate, baseline_sampling)
+    candidate = _sampling_evidence(candidate_run, candidate_success_rate, candidate_sampling)
+    baseline_mean = baseline.success_rate_mean or 0.0
+    candidate_mean = candidate.success_rate_mean or 0.0
+    delta = round(candidate_mean - baseline_mean, 2)
+    any_unstable = not baseline.is_stable or not candidate.is_stable
+
+    if delta > 0:
+        interpretation = "unstable_improvement" if any_unstable else "stable_improvement"
+    elif delta < 0:
+        interpretation = "unstable_regression" if any_unstable else "stable_regression"
+    else:
+        interpretation = "unstable_tie" if any_unstable else "stable_tie"
+
+    notes = (
+        f"Baseline stddev {baseline.success_rate_stddev or 0.0} pp with "
+        f"consistency {baseline.consistency_rate or 0.0}%. "
+        f"Candidate stddev {candidate.success_rate_stddev or 0.0} pp with "
+        f"consistency {candidate.consistency_rate or 0.0}%."
+    )
+    return CompareSamplingAssessmentSchema(
+        interpretation=interpretation,
+        baseline=baseline,
+        candidate=candidate,
+        notes=notes,
     )
 
 
@@ -266,6 +343,14 @@ def get_run_comparison(
         lineage=CompareLineageSchema(
             baseline=_run_lineage_schema(baseline_run),
             candidate=_run_lineage_schema(candidate_run),
+        ),
+        sampling=_sampling_assessment(
+            baseline_run,
+            candidate_run,
+            baseline_summary.success_rate,
+            candidate_summary.success_rate,
+            baseline_summary.sampling,
+            candidate_summary.sampling,
         ),
         category_deltas=category_deltas,
         improvements=improvements,

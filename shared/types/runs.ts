@@ -20,6 +20,11 @@ export type RunCreateRequest = {
   notes: string | null;
 };
 
+export type SamplingRequest = {
+  sample_count: number;
+  sample_overrides: Record<string, unknown>[];
+};
+
 export type RunScore = {
   correctness: number | null;
   tool_use: number | null;
@@ -116,6 +121,10 @@ export type QuickRunRequest = {
   notes: string | null;
 };
 
+export type SampledRunCreateRequest = RunCreateRequest & {
+  sampling: SamplingRequest;
+};
+
 export type AutoCompare = {
   baseline_run_id: string | null;
   candidate_run_id: string;
@@ -126,4 +135,10 @@ export type AutoCompare = {
 export type QuickRunResponse = {
   run: RunDetail;
   auto_compare: AutoCompare;
+};
+
+export type SampledRunCreateResponse = {
+  group_id: string;
+  sample_count: number;
+  runs: RunDetail[];
 };

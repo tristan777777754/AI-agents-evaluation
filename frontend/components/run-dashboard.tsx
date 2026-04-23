@@ -112,6 +112,12 @@ export function RunDashboard({ summary, loadError = null }: RunDashboardProps) {
         <p style={{ margin: 0, color: "var(--muted)" }}>
           Credibility mode: {scorerCredibilityNote(summary.scorer_config_id)}
         </p>
+        {summary.sampling ? (
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            Sampling group {summary.sampling.group_id} · sample {summary.sampling.sample_index}/
+            {summary.sampling.sample_count} · consistency {metricValue(summary.sampling.consistency_rate, "%")}
+          </p>
+        ) : null}
 
         <div
           style={{
@@ -138,6 +144,73 @@ export function RunDashboard({ summary, loadError = null }: RunDashboardProps) {
           ))}
         </div>
       </section>
+
+      {summary.sampling ? (
+        <section
+          style={{
+            display: "grid",
+            gap: "1rem",
+            padding: "1.5rem",
+            borderRadius: "24px",
+            border: "1px solid var(--border)",
+            background: "var(--panel)",
+            boxShadow: "var(--shadow)",
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Reliability Sampling
+            </p>
+            <h3 style={{ margin: "0.35rem 0 0" }}>Mean performance and variability</h3>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "1rem",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            {[
+              {
+                label: "Success rate",
+                value: `${metricValue(summary.sampling.success_rate.mean, "%")} mean`,
+                detail: `stddev ${metricValue(summary.sampling.success_rate.stddev, " pp")}`,
+              },
+              {
+                label: "Latency",
+                value: `${metricValue(summary.sampling.average_latency_ms.mean, " ms")} mean`,
+                detail: `stddev ${metricValue(summary.sampling.average_latency_ms.stddev, " ms")}`,
+              },
+              {
+                label: "Cost",
+                value: `$${(summary.sampling.total_cost.mean ?? 0).toFixed(4)} mean`,
+                detail: `stddev $${(summary.sampling.total_cost.stddev ?? 0).toFixed(4)}`,
+              },
+              {
+                label: "Consistency",
+                value: metricValue(summary.sampling.consistency_rate, "%"),
+                detail: `${summary.sampling.completed_sample_count}/${summary.sampling.sample_count} samples completed`,
+              },
+            ].map((metric) => (
+              <article
+                key={metric.label}
+                style={{
+                  display: "grid",
+                  gap: "0.35rem",
+                  padding: "1rem",
+                  borderRadius: "18px",
+                  border: "1px solid var(--border)",
+                  background: "rgba(255,255,255,0.72)",
+                }}
+              >
+                <span style={{ color: "var(--muted)" }}>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                <span style={{ color: "var(--muted)" }}>{metric.detail}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section
         style={{

@@ -25,6 +25,14 @@ class EvalRunRecord(Base):
     )
     dataset_snapshot_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     dataset_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sample_group_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    sample_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sample_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sampling_config_json: Mapped[dict[str, object]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
     scorer_config_id: Mapped[str] = mapped_column(String(120), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     adapter_type: Mapped[str] = mapped_column(String(64), nullable=False, default="stub")

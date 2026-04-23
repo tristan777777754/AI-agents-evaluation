@@ -16,6 +16,8 @@ import type {
   RunCreateRequest,
   RunDetail,
   RunListPage,
+  SampledRunCreateRequest,
+  SampledRunCreateResponse,
   RunSummary,
   RunTaskList,
   TaskRunDetail,
@@ -150,6 +152,19 @@ export async function createRun(payload: RunCreateRequest): Promise<RunDetail> {
   return parseResponse<RunDetail>(response);
 }
 
+export async function createSampledRuns(
+  payload: SampledRunCreateRequest,
+): Promise<SampledRunCreateResponse> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs/sampling`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<SampledRunCreateResponse>(response);
+}
+
 export async function createQuickRun(payload: QuickRunRequest): Promise<QuickRunResponse> {
   const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs/quick`, {
     method: "POST",
@@ -281,6 +296,7 @@ export type {
   TraceComparison,
   RunDetail,
   RunListPage,
+  SampledRunCreateResponse,
   RunSummary,
   RunTaskList,
   TaskRunDetail,

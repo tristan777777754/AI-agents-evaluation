@@ -110,6 +110,12 @@ export function RunDetailLive({ initialRun, initialTasks }: RunDetailLiveProps) 
           Snapshot {run.dataset_snapshot_id ?? "n/a"} · {run.baseline ? "Baseline run" : "Candidate run"}
           {run.experiment_tag ? ` · Experiment ${run.experiment_tag}` : ""}
         </p>
+        {run.sampling ? (
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            Sampling group {run.sampling.group_id} · sample {run.sampling.sample_index}/
+            {run.sampling.sample_count}
+          </p>
+        ) : null}
         {run.notes ? <p style={{ margin: 0, color: "var(--muted)" }}>{run.notes}</p> : null}
         {compareHref ? (
           <Link href={compareHref} style={{ color: "var(--accent)" }}>

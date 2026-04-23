@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase14}"
+PHASE="${1:-phase15}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -33,7 +33,7 @@ with TestClient(app) as client:
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 14", body
+    assert body["phase"]["current_phase"] == "Phase 15", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -816,6 +816,7 @@ with TestClient(app) as client:
     from app.db import SessionLocal
 
     original_delay = runs_api.execute_run_task.delay
+    original_build_adapter = run_service._build_adapter
     runs_api.execute_run_task.delay = lambda *_args, **_kwargs: None
 
     class SlowProgressAdapter:
@@ -880,8 +881,90 @@ with TestClient(app) as client:
         final_progress.json()["completed_tasks"] == final_progress.json()["total_tasks"]
     ), final_progress.json()
     runs_api.execute_run_task.delay = original_delay
+    run_service._build_adapter = original_build_adapter
 
     if os.environ["PHASE"] == "phase14":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    from app.adapters.stub import StubAgentAdapter
+
+    run_service._build_adapter = lambda _adapter_type: StubAgentAdapter()
+
+    sampled_baseline = client.post(
+        "/api/v1/runs/sampling",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+            "experiment_tag": "phase15-stable",
+            "notes": "Stable repeated-run baseline",
+            "sampling": {
+                "sample_count": 3,
+                "sample_overrides": [],
+            },
+        },
+    )
+    assert sampled_baseline.status_code == 201, sampled_baseline.text
+    sampled_baseline_body = sampled_baseline.json()
+    assert sampled_baseline_body["sample_count"] == 3, sampled_baseline_body
+    assert all(run["sampling"]["group_id"] == sampled_baseline_body["group_id"] for run in sampled_baseline_body["runs"]), sampled_baseline_body
+
+    sampled_candidate = client.post(
+        "/api/v1/runs/sampling",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v2",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+            "experiment_tag": "phase15-unstable",
+            "notes": "Unstable repeated-run candidate",
+            "sampling": {
+                "sample_count": 3,
+                "sample_overrides": [
+                    {},
+                    {
+                        "failure_map": {
+                            "ds_item_003": True,
+                            "ds_item_004": True,
+                            "ds_item_005": True,
+                            "ds_item_006": True,
+                        }
+                    },
+                    {"failure_map": {"ds_item_003": True}},
+                ],
+            },
+        },
+    )
+    assert sampled_candidate.status_code == 201, sampled_candidate.text
+    sampled_candidate_body = sampled_candidate.json()
+
+    sampled_summary = client.get(f"/api/v1/runs/{sampled_candidate_body['runs'][0]['run_id']}/summary")
+    assert sampled_summary.status_code == 200, sampled_summary.text
+    sampled_summary_body = sampled_summary.json()
+    assert sampled_summary_body["sampling"]["sample_count"] == 3, sampled_summary_body
+    assert sampled_summary_body["sampling"]["success_rate"]["mean"] == 91.67, sampled_summary_body
+    assert sampled_summary_body["sampling"]["success_rate"]["stddev"] == 8.5, sampled_summary_body
+    assert sampled_summary_body["sampling"]["consistency_rate"] == 80.0, sampled_summary_body
+
+    sampled_compare = client.get(
+        "/api/v1/runs/compare",
+        params={
+            "baseline_run_id": sampled_baseline_body["runs"][0]["run_id"],
+            "candidate_run_id": sampled_candidate_body["runs"][0]["run_id"],
+        },
+    )
+    assert sampled_compare.status_code == 200, sampled_compare.text
+    sampled_compare_body = sampled_compare.json()
+    assert sampled_compare_body["sampling"]["interpretation"] == "unstable_regression", sampled_compare_body
+    assert sampled_compare_body["sampling"]["baseline"]["is_stable"] is True, sampled_compare_body
+    assert sampled_compare_body["sampling"]["candidate"]["is_stable"] is False, sampled_compare_body
+    assert sampled_compare_body["sampling"]["candidate"]["sample_count"] == 3, sampled_compare_body
+
+    if os.environ["PHASE"] == "phase15":
         print("Backend smoke checks passed.")
         raise SystemExit(0)
 

@@ -25,6 +25,7 @@ from app.schemas.contracts import (
     EvalRunSchema,
     FailureReason,
     RunStatus,
+    SamplingMetadataSchema,
     ScorerConfigSchema,
     TraceSummarySchema,
 )
@@ -39,6 +40,8 @@ from app.schemas.runs import (
     RunSummarySchema,
     RunTaskListSchema,
     RunTaskResultSchema,
+    SampledRunCreateRequestSchema,
+    SampledRunCreateResponseSchema,
 )
 from app.services.compare import COMPARABLE_RUN_STATUSES, get_run_comparison
 from app.services.registry import get_agent_version, get_registry_defaults, get_scorer_config
@@ -128,6 +131,16 @@ def _trace_summary_schema(record: TraceRecord | None) -> TraceSummarySchema | No
     )
 
 
+def _sampling_metadata_schema(record: EvalRunRecord) -> SamplingMetadataSchema | None:
+    if not record.sample_group_id or not record.sample_index or not record.sample_count:
+        return None
+    return SamplingMetadataSchema(
+        group_id=record.sample_group_id,
+        sample_index=record.sample_index,
+        sample_count=record.sample_count,
+    )
+
+
 def _task_schema(record: EvalTaskRunRecord) -> RunTaskResultSchema:
     return RunTaskResultSchema(
         task_run_id=record.task_run_id,
@@ -169,6 +182,7 @@ def _run_summary_schema(record: EvalRunRecord) -> RunSummarySchema:
         baseline=record.baseline,
         experiment_tag=record.experiment_tag,
         notes=record.notes,
+        sampling=_sampling_metadata_schema(record),
         started_at=_utc_iso(record.started_at),
         completed_at=_utc_iso(record.completed_at),
         adapter_type=record.adapter_type,
@@ -253,6 +267,25 @@ def get_run_tasks(session: Session, run_id: str) -> RunTaskListSchema:
 
 
 def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSchema:
+    return _create_run(
+        session,
+        payload,
+        sample_group_id=None,
+        sample_index=None,
+        sample_count=None,
+        sampling_config=None,
+    )
+
+
+def _create_run(
+    session: Session,
+    payload: RunCreateRequestSchema,
+    *,
+    sample_group_id: str | None,
+    sample_index: int | None,
+    sample_count: int | None,
+    sampling_config: dict[str, object] | None,
+) -> EvalRunSchema:
     dataset = session.get(DatasetRecord, payload.dataset_id)
     if dataset is None:
         raise LookupError("Dataset not found.")
@@ -298,6 +331,10 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
         dataset_id=dataset.dataset_id,
         dataset_snapshot_id=dataset_snapshot.dataset_snapshot_id,
         dataset_checksum=dataset_snapshot.checksum,
+        sample_group_id=sample_group_id,
+        sample_index=sample_index,
+        sample_count=sample_count,
+        sampling_config_json=sampling_config or {},
         scorer_config_id=scorer_config.scorer_config_id,
         status=RunStatus.pending.value,
         adapter_type=payload.adapter_type,
@@ -347,6 +384,7 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
         baseline=run_record.baseline,
         experiment_tag=run_record.experiment_tag,
         notes=run_record.notes,
+        sampling=_sampling_metadata_schema(run_record),
         started_at=_utc_iso(run_record.started_at),
         completed_at=_utc_iso(run_record.completed_at),
     )
@@ -517,6 +555,9 @@ def _build_adapter_config(
             "dataset_item_id": task_run.dataset_item_id,
             "expected_output": task_run.expected_output,
             "model": run.agent_version_snapshot_json.get("model"),
+            "sample_group_id": run.sample_group_id,
+            "sample_index": run.sample_index,
+            "sample_count": run.sample_count,
         }
     )
     return adapter_config
@@ -823,6 +864,10 @@ def get_auto_compare(session: Session, run_id: str) -> AutoCompareSchema:
         for run in candidate_runs
         if run.status in COMPARABLE_RUN_STATUSES
         and (candidate_agent_id is None or _candidate_agent_id(run) == candidate_agent_id)
+        and (
+            candidate_run.sample_group_id is None
+            or run.sample_group_id != candidate_run.sample_group_id
+        )
     ]
 
     selected_run: EvalRunRecord | None = None
@@ -874,4 +919,48 @@ def create_quick_run(session: Session, payload: QuickRunRequestSchema) -> QuickR
     return QuickRunResponseSchema(
         run=detail,
         auto_compare=get_auto_compare(session, run.run_id),
+    )
+
+
+def create_sampled_runs(
+    session: Session,
+    payload: SampledRunCreateRequestSchema,
+) -> SampledRunCreateResponseSchema:
+    overrides = list(payload.sampling.sample_overrides)
+    if len(overrides) > payload.sampling.sample_count:
+        raise ValueError("sample_overrides cannot exceed sample_count.")
+
+    group_id = f"sample_group_{uuid4().hex[:12]}"
+    created_runs: list[RunDetailSchema] = []
+
+    for sample_index in range(1, payload.sampling.sample_count + 1):
+        override = overrides[sample_index - 1] if sample_index - 1 < len(overrides) else {}
+        merged_adapter_config = dict(payload.adapter_config)
+        merged_adapter_config.update(override)
+        run = _create_run(
+            session,
+            RunCreateRequestSchema(
+                dataset_id=payload.dataset_id,
+                agent_version_id=payload.agent_version_id,
+                scorer_config_id=payload.scorer_config_id,
+                dataset_tag_filter=payload.dataset_tag_filter,
+                adapter_type=payload.adapter_type,
+                adapter_config=merged_adapter_config,
+                experiment_tag=payload.experiment_tag,
+                notes=payload.notes,
+            ),
+            sample_group_id=group_id,
+            sample_index=sample_index,
+            sample_count=payload.sampling.sample_count,
+            sampling_config={
+                "sample_count": payload.sampling.sample_count,
+                "sample_overrides_count": len(overrides),
+            },
+        )
+        created_runs.append(get_run_detail(session, run.run_id))
+
+    return SampledRunCreateResponseSchema(
+        group_id=group_id,
+        sample_count=payload.sampling.sample_count,
+        runs=created_runs,
     )

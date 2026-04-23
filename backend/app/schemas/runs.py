@@ -91,6 +91,21 @@ class QuickRunRequestSchema(BaseModel):
     notes: str | None = None
 
 
+class SamplingRequestSchema(BaseModel):
+    sample_count: int = Field(ge=2, le=10)
+    sample_overrides: list[dict[str, object]] = Field(default_factory=list)
+
+
+class SampledRunCreateRequestSchema(RunCreateRequestSchema):
+    sampling: SamplingRequestSchema
+
+
+class SampledRunCreateResponseSchema(BaseModel):
+    group_id: str
+    sample_count: int
+    runs: list[RunDetailSchema]
+
+
 class AutoCompareSchema(BaseModel):
     baseline_run_id: str | None = None
     candidate_run_id: str

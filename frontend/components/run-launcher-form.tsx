@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { DatasetSummary } from "@/lib/datasets";
-import { createQuickRun, createRun, type RegistryList } from "@/lib/runs";
+import { createQuickRun, createRun, createSampledRuns, type RegistryList } from "@/lib/runs";
 
 type RunLauncherFormProps = {
   datasets: DatasetSummary[];
@@ -83,21 +83,42 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
       .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean);
+    const sampleCount = Number(formData.get("sample_count") ?? "1") || 1;
 
     try {
-      const run = await createRun({
-        dataset_id: datasetId,
-        agent_version_id: agentVersionId,
-        scorer_config_id: scorerConfigId,
-        dataset_tag_filter: datasetTagFilter,
-        adapter_type: "stub",
-        adapter_config: {
-          failure_mode: failureMode,
-        },
-        experiment_tag: experimentTag || null,
-        notes: notes || null,
-      });
-      router.push(`/runs/${run.run_id}`);
+      if (sampleCount > 1) {
+        const response = await createSampledRuns({
+          dataset_id: datasetId,
+          agent_version_id: agentVersionId,
+          scorer_config_id: scorerConfigId,
+          dataset_tag_filter: datasetTagFilter,
+          adapter_type: "stub",
+          adapter_config: {
+            failure_mode: failureMode,
+          },
+          experiment_tag: experimentTag || null,
+          notes: notes || null,
+          sampling: {
+            sample_count: sampleCount,
+            sample_overrides: [],
+          },
+        });
+        router.push(`/runs/${response.runs[0]?.run_id ?? ""}`);
+      } else {
+        const run = await createRun({
+          dataset_id: datasetId,
+          agent_version_id: agentVersionId,
+          scorer_config_id: scorerConfigId,
+          dataset_tag_filter: datasetTagFilter,
+          adapter_type: "stub",
+          adapter_config: {
+            failure_mode: failureMode,
+          },
+          experiment_tag: experimentTag || null,
+          notes: notes || null,
+        });
+        router.push(`/runs/${run.run_id}`);
+      }
       router.refresh();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Run creation failed.");
@@ -237,6 +258,18 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
       </label>
 
       <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span>Sample count</span>
+        <input
+          name="sample_count"
+          type="number"
+          min={1}
+          max={10}
+          defaultValue={1}
+          disabled={submitting}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
         <span>Experiment tag</span>
         <input
           name="experiment_tag"
@@ -294,6 +327,10 @@ export function RunLauncherForm({ datasets, registry }: RunLauncherFormProps) {
           <p style={{ margin: 0 }}>{errorMessage}</p>
         </div>
       ) : null}
+      <p style={{ margin: 0, color: "var(--muted)" }}>
+        Use sample count greater than 1 to launch a repeated-run group with persisted sampling
+        metadata.
+      </p>
       </form>
     </section>
   );

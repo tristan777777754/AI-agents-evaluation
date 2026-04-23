@@ -66,6 +66,26 @@ class CompareLineageSchema(BaseModel):
     candidate: CompareRunLineageSchema
 
 
+class CompareSamplingEvidenceSchema(BaseModel):
+    group_id: str | None = None
+    representative_run_id: str
+    sample_count: int
+    completed_sample_count: int
+    sample_run_ids: list[str]
+    success_rate_mean: float | None = None
+    success_rate_stddev: float | None = None
+    success_rate_variance: float | None = None
+    consistency_rate: float | None = None
+    is_stable: bool
+
+
+class CompareSamplingAssessmentSchema(BaseModel):
+    interpretation: str
+    baseline: CompareSamplingEvidenceSchema
+    candidate: CompareSamplingEvidenceSchema
+    notes: str
+
+
 class RunComparisonSchema(BaseModel):
     baseline_run_id: str
     candidate_run_id: str
@@ -86,6 +106,7 @@ class RunComparisonSchema(BaseModel):
     review_needed_count: CompareMetricDeltaSchema
     credibility: CompareCredibilitySchema
     lineage: CompareLineageSchema
+    sampling: CompareSamplingAssessmentSchema | None = None
     category_deltas: list[CompareCategoryDeltaSchema]
     improvements: list[CompareCaseSchema]
     regressions: list[CompareCaseSchema]

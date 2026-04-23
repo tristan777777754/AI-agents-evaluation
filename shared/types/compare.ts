@@ -60,6 +60,26 @@ export type CompareLineage = {
   candidate: CompareRunLineage;
 };
 
+export type CompareSamplingEvidence = {
+  group_id: string | null;
+  representative_run_id: string;
+  sample_count: number;
+  completed_sample_count: number;
+  sample_run_ids: string[];
+  success_rate_mean: number | null;
+  success_rate_stddev: number | null;
+  success_rate_variance: number | null;
+  consistency_rate: number | null;
+  is_stable: boolean;
+};
+
+export type CompareSamplingAssessment = {
+  interpretation: string;
+  baseline: CompareSamplingEvidence;
+  candidate: CompareSamplingEvidence;
+  notes: string;
+};
+
 export type RunComparison = {
   baseline_run_id: string;
   candidate_run_id: string;
@@ -80,6 +100,7 @@ export type RunComparison = {
   review_needed_count: CompareMetricDelta;
   credibility: CompareCredibility;
   lineage: CompareLineage;
+  sampling: CompareSamplingAssessment | null;
   category_deltas: CompareCategoryDelta[];
   improvements: CompareCase[];
   regressions: CompareCase[];

@@ -15,6 +15,7 @@ describe("run summary contract", () => {
       baseline: true,
       experiment_tag: "phase10-governance",
       notes: "Pinned baseline run.",
+      sampling: null,
       started_at: null,
       completed_at: null,
       adapter_type: "stub",

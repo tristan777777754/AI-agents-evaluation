@@ -46,9 +46,15 @@ class DatasetApprovalStatus(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 14"
+    current_phase: str = "Phase 15"
     scope: list[str]
     non_goals: list[str]
+
+
+class SamplingMetadataSchema(BaseModel):
+    group_id: str
+    sample_index: int
+    sample_count: int
 
 
 class AgentSchema(BaseModel):
@@ -129,6 +135,7 @@ class EvalRunSchema(BaseModel):
     baseline: bool = False
     experiment_tag: str | None = None
     notes: str | None = None
+    sampling: SamplingMetadataSchema | None = None
     started_at: str | None = None
     completed_at: str | None = None
 
@@ -184,16 +191,15 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "database-backed registry CRUD with immutable agent version snapshots",
-                    "quick-run defaults and additive auto-compare convenience paths",
-                    "real run progress polling sourced from persisted task completion state",
-                    "pagination and basic filtering for runs, dataset items, "
-                    "and review queue views",
+                    "repeated-run sampling grouped by additive sample metadata",
+                    "summary metrics that expose mean performance, variance, and consistency",
+                    "compare interpretation that distinguishes stable and unstable movement",
+                    "deterministic replay coverage preserved alongside sampling flows",
                 ],
                 non_goals=[
-                    "reliability sampling or repeated-run variance metrics",
-                    "phase-15+ multi-model governance work",
-                    "mutating existing agent version snapshots after creation",
+                    "changing canonical run statuses or replacing single-run contracts",
+                    "phase-16+ multi-model governance work",
+                    "probabilistic smoke tests that depend on uncontrolled randomness",
                     "breaking existing compare semantics or core entity names",
                 ],
             ),

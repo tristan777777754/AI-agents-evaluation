@@ -17,6 +17,7 @@ describe("run dashboard summary contract", () => {
       success_rate: 66.67,
       average_latency_ms: 120,
       total_cost: 0.0111,
+      sampling: null,
       category_breakdown: [
         {
           category: "security",

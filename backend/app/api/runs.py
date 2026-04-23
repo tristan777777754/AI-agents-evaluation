@@ -15,6 +15,8 @@ from app.schemas.runs import (
     RunDetailSchema,
     RunSummarySchema,
     RunTaskListSchema,
+    SampledRunCreateRequestSchema,
+    SampledRunCreateResponseSchema,
 )
 from app.schemas.summary import RunDashboardSummarySchema
 from app.services.compare import get_run_comparison
@@ -22,6 +24,7 @@ from app.services.runs import (
     InvalidStateTransitionError,
     create_quick_run,
     create_run,
+    create_sampled_runs,
     get_auto_compare,
     get_run_detail,
     get_run_tasks,
@@ -57,6 +60,37 @@ def create_eval_run(payload: RunCreateRequestSchema, session: RunSession) -> Run
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return get_run_detail(session, run.run_id)
+
+
+@router.post(
+    "/sampling",
+    response_model=SampledRunCreateResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_sampled_eval_runs(
+    payload: SampledRunCreateRequestSchema,
+    session: RunSession,
+) -> SampledRunCreateResponseSchema:
+    try:
+        response = create_sampled_runs(session, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    for run in response.runs:
+        try:
+            execute_run_task.delay(run.run_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return SampledRunCreateResponseSchema(
+        group_id=response.group_id,
+        sample_count=response.sample_count,
+        runs=[get_run_detail(session, run.run_id) for run in response.runs],
+    )
 
 
 @router.post("/quick", response_model=QuickRunResponseSchema, status_code=status.HTTP_201_CREATED)

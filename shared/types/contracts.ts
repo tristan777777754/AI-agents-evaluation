@@ -101,6 +101,11 @@ export type EvalRun = {
   baseline: boolean;
   experiment_tag: string | null;
   notes: string | null;
+  sampling: {
+    group_id: string;
+    sample_index: number;
+    sample_count: number;
+  } | null;
   started_at: string | null;
   completed_at: string | null;
 };
