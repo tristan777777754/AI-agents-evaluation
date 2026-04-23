@@ -4,18 +4,18 @@ const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://local
 
 export const phase1ContractPreview: PhaseContractSnapshot = {
   phase: {
-    current_phase: "Phase 15",
+    current_phase: "Phase 16",
     scope: [
-      "repeated-run sampling grouped by additive sample metadata",
-      "summary metrics that expose mean performance, variance, and consistency",
-      "compare interpretation that distinguishes stable and unstable movement",
-      "deterministic replay coverage preserved alongside sampling flows",
+      "generator, agent, and judge metadata stored as explicit governed roles",
+      "compatibility rules that reject risky self-judge or same-model evaluation setups",
+      "judge audit-trail persistence for model, prompt, and reasoning metadata",
+      "cross-judge consistency reporting derived from persisted evaluation artifacts",
     ],
     non_goals: [
-      "changing canonical run statuses or replacing single-run contracts",
-      "phase-16+ multi-model governance work",
-      "probabilistic smoke tests that depend on uncontrolled randomness",
-      "breaking existing compare semantics or core entity names",
+      "bring-your-own-key or tenant-scoped credential flows",
+      "replacing the existing scorer abstraction with a new platform",
+      "changing canonical run statuses, compare semantics, or baseline meaning",
+      "turning the workbench into a provider marketplace or multi-tenant SaaS",
     ],
   },
   run_statuses: [
@@ -33,8 +33,10 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "agent_id",
       "version_name",
       "model",
+      "provider",
       "prompt_hash",
       "config_json",
+      "governance",
       "created_at",
     ],
     dataset: [
@@ -81,6 +83,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "judge_model",
       "judge_provider",
       "thresholds_json",
+      "governance",
     ],
     eval_run: [
       "run_id",
@@ -118,6 +121,7 @@ export const phase1ContractPreview: PhaseContractSnapshot = {
       "pass_fail",
       "review_needed",
       "evidence_json",
+      "judge_audit",
     ],
     review: ["review_id", "task_run_id", "reviewer_id", "verdict", "failure_label", "note"],
   },

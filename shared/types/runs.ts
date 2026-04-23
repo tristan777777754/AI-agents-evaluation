@@ -32,6 +32,7 @@ export type RunScore = {
   pass_fail: boolean;
   review_needed: boolean;
   evidence_json: Record<string, unknown> | null;
+  judge_audit: Record<string, unknown> | null;
 };
 
 export type RunTaskResult = {

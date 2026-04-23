@@ -11,5 +11,35 @@
   "judge_provider": "anthropic",
   "thresholds_json": {
     "pass_fail": 0.75
+  },
+  "governance": {
+    "generator": {
+      "role": "generator",
+      "provider": "openai",
+      "model": "gpt-4.1-mini",
+      "prompt_id": "dataset_generation_support_qa",
+      "prompt_version": "phase13_v1",
+      "credential_mode": "platform_managed",
+      "reasoning_available": false
+    },
+    "judge": {
+      "role": "judge",
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet",
+      "prompt_id": "judge_support_qa",
+      "prompt_version": "phase16_v1",
+      "credential_mode": "platform_managed",
+      "reasoning_available": true
+    },
+    "compatibility": {
+      "policy_id": "phase16_provider_separation_v1",
+      "provider_separation_required": true,
+      "same_model_disallowed": true,
+      "blocked_same_provider_pairs": [
+        "openai:openai",
+        "anthropic:anthropic"
+      ],
+      "notes": "Judge and evaluated agent must remain separated by provider and model."
+    }
   }
 }

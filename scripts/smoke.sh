@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase15}"
+PHASE="${1:-phase16}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -33,7 +33,7 @@ with TestClient(app) as client:
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 15", body
+    assert body["phase"]["current_phase"] == "Phase 16", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -965,6 +965,102 @@ with TestClient(app) as client:
     assert sampled_compare_body["sampling"]["candidate"]["sample_count"] == 3, sampled_compare_body
 
     if os.environ["PHASE"] == "phase15":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    from app.schemas.contracts import ScorerConfigSchema
+    from app.services.registry import _read_fixture
+
+    incompatible_config = ScorerConfigSchema.model_validate(
+        _read_fixture("scorer_config_llm_judge.json")
+    )
+    incompatible_config.judge_model = "gpt-4.1-mini"
+    original_get_scorer_config = run_service.get_scorer_config
+    run_service.get_scorer_config = lambda _scorer_config_id: incompatible_config
+
+    rejected_phase16 = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_llm_judge_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert rejected_phase16.status_code == 400, rejected_phase16.text
+    assert "judge model different" in rejected_phase16.json()["detail"].lower(), rejected_phase16.json()
+    run_service.get_scorer_config = original_get_scorer_config
+
+    class Phase16GovernanceAdapter:
+        def run_task(self, input_text: str, config: dict[str, object]) -> dict[str, object]:
+            expected_output = str(config["expected_output"])
+            dataset_item_id = str(config["dataset_item_id"])
+            output = expected_output
+            if dataset_item_id == "ds_item_006":
+                output = (
+                    "Enterprise users can find it in the policy center knowledge base, "
+                    "not the trust center."
+                )
+            return {
+                "final_output": output,
+                "latency_ms": 45,
+                "token_usage": {"prompt": 12, "completion": 9},
+                "cost": 0.0,
+                "termination_reason": "completed",
+                "error": None,
+                "trace_events": [
+                    {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                    {"step_index": 1, "event_type": "final_output", "output": output},
+                ],
+            }
+
+    run_service._build_adapter = lambda _adapter_type: Phase16GovernanceAdapter()
+
+    phase16_llm_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_llm_judge_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert phase16_llm_run.status_code == 201, phase16_llm_run.text
+    phase16_llm_tasks = client.get(f"/api/v1/runs/{phase16_llm_run.json()['run_id']}/tasks")
+    assert phase16_llm_tasks.status_code == 200, phase16_llm_tasks.text
+    phase16_audit = phase16_llm_tasks.json()["items"][0]["score"]["judge_audit"]
+    assert phase16_audit["judge"]["provider"] == "anthropic", phase16_audit
+    assert phase16_audit["judge"]["prompt_version"] == "phase16_v1", phase16_audit
+    assert phase16_audit["reasoning_metadata"]["available"] is True, phase16_audit
+
+    phase16_rubric_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rubric_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert phase16_rubric_run.status_code == 201, phase16_rubric_run.text
+
+    phase16_consistency = client.get(
+        "/api/v1/calibration/judge-consistency",
+        params={
+            "baseline_run_id": phase16_llm_run.json()["run_id"],
+            "candidate_run_id": phase16_rubric_run.json()["run_id"],
+        },
+    )
+    assert phase16_consistency.status_code == 200, phase16_consistency.text
+    phase16_consistency_body = phase16_consistency.json()
+    assert phase16_consistency_body["compared_task_count"] == 20, phase16_consistency_body
+    assert phase16_consistency_body["disagreement_count"] >= 1, phase16_consistency_body
+    assert phase16_consistency_body["participants"][0]["judge_provider"] == "anthropic", phase16_consistency_body
+
+    if os.environ["PHASE"] == "phase16":
         print("Backend smoke checks passed.")
         raise SystemExit(0)
 

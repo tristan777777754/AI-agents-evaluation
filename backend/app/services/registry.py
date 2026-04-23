@@ -13,7 +13,13 @@ from app.models import (
     RegistryDefaultsRecord,
     ScorerConfigRecord,
 )
-from app.schemas.contracts import AgentSchema, AgentVersionSchema, ScorerConfigSchema
+from app.schemas.contracts import (
+    AgentSchema,
+    AgentVersionSchema,
+    GovernedModelRoleSchema,
+    ScorerConfigSchema,
+    ScorerGovernanceSchema,
+)
 from app.schemas.registry import (
     AgentCreateRequestSchema,
     AgentVersionCreateRequestSchema,
@@ -21,6 +27,7 @@ from app.schemas.registry import (
     RegistryDefaultsUpdateRequestSchema,
     RegistryListSchema,
 )
+from app.services.scoring import provider_from_model_name
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
 DEFAULTS_ROW_ID = "default"
@@ -56,14 +63,36 @@ def _agent_schema(record: AgentRecord) -> AgentSchema:
 
 
 def _agent_version_schema(record: AgentVersionRecord) -> AgentVersionSchema:
+    prompt_id_raw = None
+    prompt_version_raw = None
+    if isinstance(record.config_json, dict):
+        prompt_id_raw = record.config_json.get("prompt_id")
+        prompt_version_raw = record.config_json.get("prompt_version")
+    provider = provider_from_model_name(record.model)
+    governance = {
+        "role": "agent",
+        "provider": provider,
+        "model": record.model,
+        "prompt_id": (
+            str(prompt_id_raw) if prompt_id_raw is not None else record.agent_version_id
+        ),
+        "prompt_version": (
+            str(prompt_version_raw) if prompt_version_raw is not None else record.version_name
+        ),
+        "prompt_hash": record.prompt_hash,
+        "credential_mode": "platform_managed",
+        "reasoning_available": None,
+    }
     return AgentVersionSchema(
         agent_version_id=record.agent_version_id,
         agent_id=record.agent_id,
         version_name=record.version_name,
         model=record.model,
+        provider=provider,
         prompt_hash=record.prompt_hash,
         config_json=dict(record.config_json or {}),
         created_at=_utc_iso(record.created_at),
+        governance=GovernedModelRoleSchema.model_validate(governance),
     )
 
 
@@ -76,6 +105,11 @@ def _scorer_config_schema(record: ScorerConfigRecord) -> ScorerConfigSchema:
         judge_model=record.judge_model,
         judge_provider=record.judge_provider,
         thresholds_json=dict(record.thresholds_json or {}),
+        governance=(
+            ScorerGovernanceSchema.model_validate(record.governance_json)
+            if record.governance_json
+            else None
+        ),
     )
 
 
@@ -143,6 +177,11 @@ def ensure_registry_seeded(session: Session) -> None:
                     judge_model=fixture_scorer.judge_model,
                     judge_provider=fixture_scorer.judge_provider,
                     thresholds_json=fixture_scorer.thresholds_json,
+                    governance_json=(
+                        fixture_scorer.governance.model_dump(mode="json")
+                        if fixture_scorer.governance is not None
+                        else {}
+                    ),
                 )
             )
             existing_scorer_ids.add(fixture_scorer.scorer_config_id)

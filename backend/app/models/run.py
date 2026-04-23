@@ -125,5 +125,6 @@ class ScoreRecord(Base):
     pass_fail: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     review_needed: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     evidence_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    judge_audit_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     task_run: Mapped[EvalTaskRunRecord] = relationship(back_populates="score")

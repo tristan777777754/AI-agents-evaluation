@@ -5,10 +5,17 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+
+from app.models import EvalRunRecord, EvalTaskRunRecord
 from app.schemas.calibration import (
     CalibrationCategorySchema,
     CalibrationDisagreementSchema,
     CalibrationReportSchema,
+    JudgeConsistencyDisagreementSchema,
+    JudgeConsistencyParticipantSchema,
+    JudgeConsistencyReportSchema,
 )
 from app.schemas.contracts import DatasetItemSchema, DatasetSchema, FailureReason
 from app.services.registry import get_scorer_config
@@ -177,5 +184,109 @@ def get_latest_calibration_report() -> CalibrationReportSchema:
         recall=recall,
         accuracy=accuracy,
         per_category=per_category,
+        disagreements=disagreements,
+    )
+
+
+def get_judge_consistency_report(
+    session: Session,
+    *,
+    baseline_run_id: str,
+    candidate_run_id: str,
+) -> JudgeConsistencyReportSchema:
+    statement = (
+        select(EvalRunRecord)
+        .where(EvalRunRecord.run_id.in_([baseline_run_id, candidate_run_id]))
+        .options(selectinload(EvalRunRecord.task_runs).selectinload(EvalTaskRunRecord.score))
+    )
+    runs = {run.run_id: run for run in session.execute(statement).scalars().all()}
+    baseline_run = runs.get(baseline_run_id)
+    candidate_run = runs.get(candidate_run_id)
+    if baseline_run is None or candidate_run is None:
+        raise LookupError("One or more runs were not found.")
+
+    if baseline_run.dataset_snapshot_id != candidate_run.dataset_snapshot_id:
+        raise ValueError(
+            "Judge consistency requires runs over the same immutable dataset snapshot."
+        )
+
+    baseline_tasks = {
+        task.dataset_item_id: task
+        for task in baseline_run.task_runs
+        if task.score is not None
+    }
+    candidate_tasks = {
+        task.dataset_item_id: task for task in candidate_run.task_runs if task.score is not None
+    }
+    shared_item_ids = sorted(set(baseline_tasks).intersection(candidate_tasks))
+    disagreements: list[JudgeConsistencyDisagreementSchema] = []
+    agreement_count = 0
+
+    for dataset_item_id in shared_item_ids:
+        baseline_score = baseline_tasks[dataset_item_id].score
+        candidate_score = candidate_tasks[dataset_item_id].score
+        if baseline_score is None or candidate_score is None:
+            continue
+        if baseline_score.pass_fail == candidate_score.pass_fail:
+            agreement_count += 1
+            continue
+        baseline_audit = baseline_score.judge_audit_json or {}
+        candidate_audit = candidate_score.judge_audit_json or {}
+        baseline_reasoning_raw = baseline_audit.get("reasoning_metadata")
+        candidate_reasoning_raw = candidate_audit.get("reasoning_metadata")
+        baseline_reasoning = (
+            baseline_reasoning_raw if isinstance(baseline_reasoning_raw, dict) else {}
+        )
+        candidate_reasoning = (
+            candidate_reasoning_raw if isinstance(candidate_reasoning_raw, dict) else {}
+        )
+        disagreements.append(
+            JudgeConsistencyDisagreementSchema(
+                dataset_item_id=dataset_item_id,
+                baseline_pass_fail=baseline_score.pass_fail,
+                candidate_pass_fail=candidate_score.pass_fail,
+                baseline_judge_summary=(
+                    str(baseline_reasoning.get("summary"))
+                    if baseline_reasoning.get("summary") is not None
+                    else None
+                ),
+                candidate_judge_summary=(
+                    str(candidate_reasoning.get("summary"))
+                    if candidate_reasoning.get("summary") is not None
+                    else None
+                ),
+            )
+        )
+
+    compared_task_count = len(shared_item_ids)
+    disagreement_count = len(disagreements)
+    agreement_rate = round(agreement_count / compared_task_count, 2) if compared_task_count else 0.0
+
+    def _participant(run: EvalRunRecord) -> JudgeConsistencyParticipantSchema:
+        snapshot = run.scorer_config_snapshot_json
+        return JudgeConsistencyParticipantSchema(
+            run_id=run.run_id,
+            scorer_config_id=run.scorer_config_id,
+            judge_model=(
+                str(snapshot.get("judge_model"))
+                if snapshot.get("judge_model") is not None
+                else None
+            ),
+            judge_provider=(
+                str(snapshot.get("judge_provider"))
+                if snapshot.get("judge_provider") is not None
+                else None
+            ),
+        )
+
+    return JudgeConsistencyReportSchema(
+        report_id=f"judge_consistency::{baseline_run_id}::{candidate_run_id}",
+        dataset_id=baseline_run.dataset_id,
+        dataset_snapshot_id=baseline_run.dataset_snapshot_id,
+        compared_task_count=compared_task_count,
+        agreement_count=agreement_count,
+        disagreement_count=disagreement_count,
+        agreement_rate=agreement_rate,
+        participants=[_participant(baseline_run), _participant(candidate_run)],
         disagreements=disagreements,
     )

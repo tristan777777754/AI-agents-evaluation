@@ -46,7 +46,7 @@ class DatasetApprovalStatus(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 15"
+    current_phase: str = "Phase 16"
     scope: list[str]
     non_goals: list[str]
 
@@ -70,9 +70,36 @@ class AgentVersionSchema(BaseModel):
     agent_id: str
     version_name: str
     model: str
+    provider: str | None = None
     prompt_hash: str
     config_json: dict[str, object] = Field(default_factory=dict)
     created_at: str | None = None
+    governance: "GovernedModelRoleSchema | None" = None
+
+
+class GovernedModelRoleSchema(BaseModel):
+    role: str
+    provider: str | None = None
+    model: str | None = None
+    prompt_id: str | None = None
+    prompt_version: str | None = None
+    prompt_hash: str | None = None
+    credential_mode: str = "platform_managed"
+    reasoning_available: bool | None = None
+
+
+class CompatibilityPolicySchema(BaseModel):
+    policy_id: str = "phase16_provider_separation_v1"
+    provider_separation_required: bool = False
+    same_model_disallowed: bool = False
+    blocked_same_provider_pairs: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class ScorerGovernanceSchema(BaseModel):
+    generator: GovernedModelRoleSchema | None = None
+    judge: GovernedModelRoleSchema | None = None
+    compatibility: CompatibilityPolicySchema | None = None
 
 
 class DatasetSchema(BaseModel):
@@ -122,6 +149,7 @@ class ScorerConfigSchema(BaseModel):
     judge_model: str | None = None
     judge_provider: str | None = None
     thresholds_json: dict[str, float] = Field(default_factory=dict)
+    governance: ScorerGovernanceSchema | None = None
 
 
 class EvalRunSchema(BaseModel):
@@ -170,6 +198,7 @@ class ScoreSchema(BaseModel):
     pass_fail: bool
     review_needed: bool = False
     evidence_json: dict[str, object] | None = None
+    judge_audit: dict[str, object] | None = None
 
 
 class ReviewSchema(BaseModel):
@@ -191,16 +220,19 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "repeated-run sampling grouped by additive sample metadata",
-                    "summary metrics that expose mean performance, variance, and consistency",
-                    "compare interpretation that distinguishes stable and unstable movement",
-                    "deterministic replay coverage preserved alongside sampling flows",
+                    "generator, agent, and judge metadata stored as explicit governed roles",
+                    (
+                        "compatibility rules that reject risky self-judge or same-model "
+                        "evaluation setups"
+                    ),
+                    "judge audit-trail persistence for model, prompt, and reasoning metadata",
+                    "cross-judge consistency reporting derived from persisted evaluation artifacts",
                 ],
                 non_goals=[
-                    "changing canonical run statuses or replacing single-run contracts",
-                    "phase-16+ multi-model governance work",
-                    "probabilistic smoke tests that depend on uncontrolled randomness",
-                    "breaking existing compare semantics or core entity names",
+                    "bring-your-own-key or tenant-scoped credential flows",
+                    "replacing the existing scorer abstraction with a new platform",
+                    "changing canonical run statuses, compare semantics, or baseline meaning",
+                    "turning the workbench into a provider marketplace or multi-tenant SaaS",
                 ],
             ),
             run_statuses=list(RunStatus),

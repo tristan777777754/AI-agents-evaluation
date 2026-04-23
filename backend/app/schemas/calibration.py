@@ -40,3 +40,30 @@ class CalibrationReportSchema(BaseModel):
     accuracy: float
     per_category: list[CalibrationCategorySchema]
     disagreements: list[CalibrationDisagreementSchema]
+
+
+class JudgeConsistencyParticipantSchema(BaseModel):
+    run_id: str
+    scorer_config_id: str
+    judge_model: str | None = None
+    judge_provider: str | None = None
+
+
+class JudgeConsistencyDisagreementSchema(BaseModel):
+    dataset_item_id: str
+    baseline_pass_fail: bool
+    candidate_pass_fail: bool
+    baseline_judge_summary: str | None = None
+    candidate_judge_summary: str | None = None
+
+
+class JudgeConsistencyReportSchema(BaseModel):
+    report_id: str
+    dataset_id: str
+    dataset_snapshot_id: str | None = None
+    compared_task_count: int
+    agreement_count: int
+    disagreement_count: int
+    agreement_rate: float
+    participants: list[JudgeConsistencyParticipantSchema]
+    disagreements: list[JudgeConsistencyDisagreementSchema]

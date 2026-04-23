@@ -48,6 +48,7 @@ class ScorerConfigRecord(Base):
     judge_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     judge_provider: Mapped[str | None] = mapped_column(String(120), nullable=True)
     thresholds_json: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False, default=dict)
+    governance_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

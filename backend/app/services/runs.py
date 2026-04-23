@@ -46,6 +46,7 @@ from app.schemas.runs import (
 from app.services.compare import COMPARABLE_RUN_STATUSES, get_run_comparison
 from app.services.registry import get_agent_version, get_registry_defaults, get_scorer_config
 from app.services.scoring import (
+    build_judge_audit,
     keyword_overlap_score,
     llm_judge_score,
     rubric_based_score,
@@ -115,6 +116,7 @@ def _score_schema(record: ScoreRecord | None) -> RunScoreSchema | None:
         pass_fail=record.pass_fail,
         review_needed=record.review_needed,
         evidence_json=record.evidence_json,
+        judge_audit=record.judge_audit_json,
     )
 
 
@@ -303,7 +305,14 @@ def _create_run(
     validate_judge_compatibility(
         scorer_type=scorer_config.type,
         judge_provider=scorer_config.judge_provider,
+        judge_model=scorer_config.judge_model,
         agent_model=agent_version.model,
+        compatibility_policy=(
+            scorer_config.governance.compatibility.model_dump(mode="json")
+            if scorer_config.governance is not None
+            and scorer_config.governance.compatibility is not None
+            else None
+        ),
     )
     _build_adapter(payload.adapter_type)
 
@@ -665,6 +674,14 @@ def _apply_task_result(
     score.pass_fail = pass_fail
     score.review_needed = failure_reason is not None or not pass_fail
     score.evidence_json = evidence
+    agent_metadata = run.agent_version_snapshot_json.get("governance")
+    scorer_governance = run.scorer_config_snapshot_json.get("governance")
+    score.judge_audit_json = build_judge_audit(
+        scorer_type=scorer_type,
+        agent_metadata=agent_metadata if isinstance(agent_metadata, dict) else None,
+        scorer_governance=scorer_governance if isinstance(scorer_governance, dict) else None,
+        evidence=evidence,
+    )
     session.add(score)
 
     trace_record = task_run.trace or TraceRecord(

@@ -56,15 +56,52 @@ def validate_judge_compatibility(
     *,
     scorer_type: str,
     judge_provider: str | None,
+    judge_model: str | None,
     agent_model: str | None,
+    compatibility_policy: dict[str, object] | None = None,
 ) -> None:
     if scorer_type not in {"llm_judge", "rubric_based"}:
         return
 
     agent_provider = provider_from_model_name(agent_model)
-    if judge_provider and agent_provider and judge_provider == agent_provider:
+    provider_separation_required = True
+    same_model_disallowed = True
+    blocked_same_provider_pairs: set[str] = set()
+    if isinstance(compatibility_policy, dict):
+        provider_separation_required = bool(
+            compatibility_policy.get("provider_separation_required", True)
+        )
+        same_model_disallowed = bool(compatibility_policy.get("same_model_disallowed", True))
+        blocked_pairs_raw = compatibility_policy.get("blocked_same_provider_pairs", [])
+        if isinstance(blocked_pairs_raw, list):
+            blocked_same_provider_pairs = {str(pair).lower() for pair in blocked_pairs_raw}
+
+    pair_key = ""
+    if judge_provider and agent_provider:
+        ordered_pair = sorted([judge_provider.lower(), agent_provider.lower()])
+        pair_key = f"{ordered_pair[0]}:{ordered_pair[1]}"
+
+    if (
+        provider_separation_required
+        and judge_provider
+        and agent_provider
+        and judge_provider == agent_provider
+    ):
         raise ValueError(
             "Judge-based scoring requires a judge provider different from the agent provider."
+        )
+    if pair_key and pair_key in blocked_same_provider_pairs:
+        raise ValueError(
+            "Judge compatibility policy blocked the requested agent/judge provider pairing."
+        )
+    if (
+        same_model_disallowed
+        and judge_model
+        and agent_model
+        and judge_model.lower() == agent_model.lower()
+    ):
+        raise ValueError(
+            "Judge-based scoring requires a judge model different from the evaluated agent model."
         )
 
 
@@ -166,3 +203,44 @@ def rubric_based_score(
 
 def normal_cdf(value: float) -> float:
     return 0.5 * (1 + math.erf(value / math.sqrt(2)))
+
+
+def build_judge_audit(
+    *,
+    scorer_type: str,
+    agent_metadata: dict[str, object] | None,
+    scorer_governance: dict[str, object] | None,
+    evidence: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if scorer_type not in {"llm_judge", "rubric_based"}:
+        return None
+
+    governance = scorer_governance or {}
+    judge_raw = governance.get("judge")
+    generator_raw = governance.get("generator")
+    compatibility_raw = governance.get("compatibility")
+    judge: dict[str, object] = judge_raw if isinstance(judge_raw, dict) else {}
+    generator: dict[str, object] = generator_raw if isinstance(generator_raw, dict) else {}
+    compatibility: dict[str, object] = (
+        compatibility_raw if isinstance(compatibility_raw, dict) else {}
+    )
+    reasoning_summary = None
+    if isinstance(evidence, dict) and isinstance(evidence.get("reasoning_summary"), str):
+        reasoning_summary = evidence.get("reasoning_summary")
+    reasoning_available = judge.get("reasoning_available")
+    return {
+        "audit_version": "phase16_v1",
+        "generator": generator,
+        "agent": agent_metadata or {},
+        "judge": judge,
+        "compatibility": compatibility,
+        "reasoning_metadata": {
+            "available": bool(reasoning_available),
+            "summary": reasoning_summary,
+            "placeholder": (
+                None
+                if reasoning_available
+                else "Reasoning metadata unavailable for this scorer or provider."
+            ),
+        },
+    }

@@ -23,6 +23,31 @@ export type PhaseMarker = {
   non_goals: string[];
 };
 
+export type GovernedModelRole = {
+  role: string;
+  provider: string | null;
+  model: string | null;
+  prompt_id: string | null;
+  prompt_version: string | null;
+  prompt_hash: string | null;
+  credential_mode: string;
+  reasoning_available: boolean | null;
+};
+
+export type CompatibilityPolicy = {
+  policy_id: string;
+  provider_separation_required: boolean;
+  same_model_disallowed: boolean;
+  blocked_same_provider_pairs: string[];
+  notes: string | null;
+};
+
+export type ScorerGovernance = {
+  generator: GovernedModelRole | null;
+  judge: GovernedModelRole | null;
+  compatibility: CompatibilityPolicy | null;
+};
+
 export type Agent = {
   agent_id: string;
   name: string;
@@ -36,9 +61,11 @@ export type AgentVersion = {
   agent_id: string;
   version_name: string;
   model: string;
+  provider: string | null;
   prompt_hash: string;
   config_json: Record<string, unknown>;
   created_at: string | null;
+  governance: GovernedModelRole | null;
 };
 
 export type Dataset = {
@@ -88,6 +115,7 @@ export type ScorerConfig = {
   judge_model: string | null;
   judge_provider: string | null;
   thresholds_json: Record<string, number>;
+  governance: ScorerGovernance | null;
 };
 
 export type EvalRun = {
@@ -140,6 +168,7 @@ export type Score = {
   pass_fail: boolean;
   review_needed: boolean;
   evidence_json: Record<string, unknown> | null;
+  judge_audit: Record<string, unknown> | null;
 };
 
 export type Review = {

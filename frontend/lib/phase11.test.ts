@@ -95,6 +95,7 @@ describe("phase 11 credibility contracts", () => {
         formatting: 1,
         pass_fail: true,
         review_needed: false,
+        judge_audit: null,
         evidence_json: {
           score_method: "llm_judge",
           judge_provider: "anthropic",

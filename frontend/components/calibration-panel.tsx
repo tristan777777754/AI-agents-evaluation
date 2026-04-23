@@ -80,6 +80,10 @@ export function CalibrationPanel({ report, loadError = null }: CalibrationPanelP
           Fixture {report.fixture_id} · scorer {report.scorer_config_id} · {report.total_cases} labelled
           cases
         </p>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Phase 16 keeps the golden-set calibration view and adds judge-consistency reporting
+          through the backend governance API for persisted judge-based runs.
+        </p>
       </div>
 
       <div

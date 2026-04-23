@@ -32,6 +32,7 @@ class RunScoreSchema(BaseModel):
     pass_fail: bool
     review_needed: bool = False
     evidence_json: dict[str, object] | None = None
+    judge_audit: dict[str, object] | None = None
 
 
 class RunTaskResultSchema(BaseModel):

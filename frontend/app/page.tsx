@@ -161,8 +161,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           Agent Evaluation Workbench
         </h1>
         <p style={{ margin: 0, maxWidth: "48rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
-          Phase 15 adds reliability sampling on top of the existing compare path so operators can
-          separate stable improvements from unstable variance without losing deterministic replay.
+          Phase 16 formalizes generator, agent, and judge governance so teams can audit who scored
+          what, reject risky self-judge setups, and inspect cross-judge consistency without
+          changing the existing compare path.
         </p>
       </section>
 
