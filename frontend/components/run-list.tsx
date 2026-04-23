@@ -1,12 +1,32 @@
 import Link from "next/link";
 
-import type { RunSummary } from "@/lib/runs";
+import type { RegistryList, RunListPage } from "@/lib/runs";
 
 type RunListProps = {
-  runs: RunSummary[];
+  runPage: RunListPage;
+  registry: RegistryList;
+  filters: {
+    status?: string;
+    agent_version_id?: string;
+  };
 };
 
-export function RunList({ runs }: RunListProps) {
+export function RunList({ runPage, registry, filters }: RunListProps) {
+  const previousPage = runPage.page > 1 ? runPage.page - 1 : null;
+  const nextPage = runPage.has_next_page ? runPage.page + 1 : null;
+
+  function buildHref(page: number): string {
+    const params = new URLSearchParams();
+    params.set("runs_page", String(page));
+    if (filters.status) {
+      params.set("runs_status", filters.status);
+    }
+    if (filters.agent_version_id) {
+      params.set("runs_agent_version_id", filters.agent_version_id);
+    }
+    return `/?${params.toString()}`;
+  }
+
   return (
     <section
       style={{
@@ -26,13 +46,46 @@ export function RunList({ runs }: RunListProps) {
         <h2 style={{ margin: "0.35rem 0 0" }}>Persisted execution history</h2>
       </div>
 
-      {runs.length === 0 ? (
+      <form method="get" style={{ display: "grid", gap: "0.75rem", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Status</span>
+          <select name="runs_status" defaultValue={filters.status ?? ""}>
+            <option value="">All statuses</option>
+            <option value="pending">pending</option>
+            <option value="running">running</option>
+            <option value="completed">completed</option>
+            <option value="failed">failed</option>
+            <option value="partial_success">partial_success</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Agent version</span>
+          <select
+            name="runs_agent_version_id"
+            defaultValue={filters.agent_version_id ?? ""}
+          >
+            <option value="">All versions</option>
+            {registry.agent_versions.map((agentVersion) => (
+              <option key={agentVersion.agent_version_id} value={agentVersion.agent_version_id}>
+                {agentVersion.version_name} · {agentVersion.model}
+              </option>
+            ))}
+          </select>
+        </label>
+        <input type="hidden" name="runs_page" value="1" />
+        <button type="submit" style={{ width: "fit-content", alignSelf: "end" }}>
+          Apply filters
+        </button>
+      </form>
+
+      {runPage.items.length === 0 ? (
         <p style={{ margin: 0, color: "var(--muted)" }}>
           No runs created yet. Start a run to unlock real summary metrics and trace-backed review.
         </p>
       ) : (
         <div style={{ display: "grid", gap: "0.9rem" }}>
-          {runs.map((run) => (
+          {runPage.items.map((run) => (
             <Link
               key={run.run_id}
               href={`/runs/${run.run_id}`}
@@ -80,6 +133,22 @@ export function RunList({ runs }: RunListProps) {
           ))}
         </div>
       )}
+
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: "var(--muted)" }}>
+          Page {runPage.page} · showing {runPage.items.length} of {runPage.total_count}
+        </span>
+        {previousPage ? (
+          <Link href={buildHref(previousPage)} style={{ color: "var(--accent)" }}>
+            Previous
+          </Link>
+        ) : null}
+        {nextPage ? (
+          <Link href={buildHref(nextPage)} style={{ color: "var(--accent)" }}>
+            Next
+          </Link>
+        ) : null}
+      </div>
     </section>
   );
 }

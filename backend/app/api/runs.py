@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.schemas.compare import RunComparisonSchema
 from app.schemas.runs import (
+    AutoCompareSchema,
+    QuickRunRequestSchema,
+    QuickRunResponseSchema,
     RunCreateRequestSchema,
     RunDetailSchema,
     RunSummarySchema,
@@ -17,7 +20,9 @@ from app.schemas.summary import RunDashboardSummarySchema
 from app.services.compare import get_run_comparison
 from app.services.runs import (
     InvalidStateTransitionError,
+    create_quick_run,
     create_run,
+    get_auto_compare,
     get_run_detail,
     get_run_tasks,
     list_runs,
@@ -54,9 +59,51 @@ def create_eval_run(payload: RunCreateRequestSchema, session: RunSession) -> Run
     return get_run_detail(session, run.run_id)
 
 
+@router.post("/quick", response_model=QuickRunResponseSchema, status_code=status.HTTP_201_CREATED)
+def launch_quick_run(payload: QuickRunRequestSchema, session: RunSession) -> QuickRunResponseSchema:
+    try:
+        response = create_quick_run(session, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    try:
+        execute_run_task.delay(response.run.run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return QuickRunResponseSchema(
+        run=get_run_detail(session, response.run.run_id),
+        auto_compare=get_auto_compare(session, response.run.run_id),
+    )
+
+
 @router.get("", response_model=list[RunSummarySchema])
-def get_runs(session: RunSession) -> list[RunSummarySchema]:
-    return list_runs(session)
+def get_runs(
+    session: RunSession,
+    response: Response,
+    page: int = 1,
+    per_page: int = 20,
+    status: str | None = None,
+    dataset_id: str | None = None,
+    agent_version_id: str | None = None,
+) -> list[RunSummarySchema]:
+    paged_runs = list_runs(
+        session,
+        page=max(page, 1),
+        per_page=min(max(per_page, 1), 100),
+        status=status,
+        dataset_id=dataset_id,
+        agent_version_id=agent_version_id,
+    )
+    response.headers["X-Total-Count"] = str(paged_runs.total_count)
+    response.headers["X-Page"] = str(paged_runs.page)
+    response.headers["X-Per-Page"] = str(paged_runs.per_page)
+    response.headers["X-Has-Next-Page"] = str(paged_runs.has_next_page).lower()
+    return paged_runs.items
 
 
 @router.get("/compare", response_model=RunComparisonSchema)
@@ -79,6 +126,16 @@ def get_run(run_id: str, session: RunSession) -> RunDetailSchema:
         return get_run_detail(session, run_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+
+
+@router.get("/{run_id}/auto-compare", response_model=AutoCompareSchema)
+def get_run_auto_compare(run_id: str, session: RunSession) -> AutoCompareSchema:
+    try:
+        return get_auto_compare(session, run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/{run_id}/rerun", response_model=RunDetailSchema)

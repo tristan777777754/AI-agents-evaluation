@@ -134,9 +134,21 @@ def get_dataset_item_list(
     dataset_id: str,
     session: DatasetSession,
     snapshot_id: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    tag: str | None = None,
+    category: str | None = None,
 ) -> DatasetItemListSchema:
     try:
-        return get_dataset_items(session, dataset_id, snapshot_id=snapshot_id)
+        return get_dataset_items(
+            session,
+            dataset_id,
+            snapshot_id=snapshot_id,
+            page=max(page, 1),
+            per_page=min(max(per_page, 1), 100),
+            tag=tag,
+            category=category,
+        )
     except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -93,6 +93,9 @@ describe("phase 6 compare and review contracts", () => {
       total_count: 2,
       pending_count: 1,
       reviewed_count: 1,
+      page: 1,
+      per_page: 10,
+      has_next_page: false,
       items: [
         {
           task_run_id: "run_v2__task_003",

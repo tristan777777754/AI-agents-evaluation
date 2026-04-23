@@ -18,22 +18,30 @@ from app.models import (
     ScoreRecord,
     TraceRecord,
 )
+from app.schemas.compare import RunComparisonSchema
 from app.schemas.contracts import (
+    AgentVersionSchema,
     DatasetLifecycleStatus,
     EvalRunSchema,
     FailureReason,
     RunStatus,
+    ScorerConfigSchema,
     TraceSummarySchema,
 )
 from app.schemas.runs import (
+    AutoCompareSchema,
+    QuickRunRequestSchema,
+    QuickRunResponseSchema,
     RunCreateRequestSchema,
     RunDetailSchema,
+    RunListPageSchema,
     RunScoreSchema,
     RunSummarySchema,
     RunTaskListSchema,
     RunTaskResultSchema,
 )
-from app.services.registry import get_agent_version, get_scorer_config
+from app.services.compare import COMPARABLE_RUN_STATUSES, get_run_comparison
+from app.services.registry import get_agent_version, get_registry_defaults, get_scorer_config
 from app.services.scoring import (
     keyword_overlap_score,
     llm_judge_score,
@@ -174,18 +182,42 @@ def _run_detail_schema(record: EvalRunRecord) -> RunDetailSchema:
     summary = _run_summary_schema(record)
     return RunDetailSchema(
         **summary.model_dump(),
-        agent_version=get_agent_version(record.agent_version_id),
-        scorer_config=get_scorer_config(record.scorer_config_id),
+        agent_version=AgentVersionSchema.model_validate(record.agent_version_snapshot_json),
+        scorer_config=ScorerConfigSchema.model_validate(record.scorer_config_snapshot_json),
     )
 
 
-def list_runs(session: Session) -> list[RunSummarySchema]:
+def list_runs(
+    session: Session,
+    *,
+    page: int = 1,
+    per_page: int = 20,
+    status: str | None = None,
+    dataset_id: str | None = None,
+    agent_version_id: str | None = None,
+) -> RunListPageSchema:
     statement = select(EvalRunRecord).order_by(
         EvalRunRecord.baseline.desc(),
         EvalRunRecord.created_at.desc(),
     )
+    if status:
+        statement = statement.where(EvalRunRecord.status == status)
+    if dataset_id:
+        statement = statement.where(EvalRunRecord.dataset_id == dataset_id)
+    if agent_version_id:
+        statement = statement.where(EvalRunRecord.agent_version_id == agent_version_id)
     runs = session.execute(statement).scalars().all()
-    return [_run_summary_schema(run) for run in runs]
+    total_count = len(runs)
+    start = max(page - 1, 0) * per_page
+    end = start + per_page
+    paged_runs = runs[start:end]
+    return RunListPageSchema(
+        items=[_run_summary_schema(run) for run in paged_runs],
+        total_count=total_count,
+        page=page,
+        per_page=per_page,
+        has_next_page=end < total_count,
+    )
 
 
 def get_run_detail(session: Session, run_id: str) -> RunDetailSchema:
@@ -233,7 +265,7 @@ def create_run(session: Session, payload: RunCreateRequestSchema) -> EvalRunSche
     if dataset_snapshot is None:
         raise LookupError("Dataset snapshot not found.")
 
-    agent_version = get_agent_version(payload.agent_version_id)
+    agent_version = get_agent_version(session, payload.agent_version_id)
     scorer_config = get_scorer_config(payload.scorer_config_id)
     validate_judge_compatibility(
         scorer_type=scorer_config.type,
@@ -625,6 +657,19 @@ def _prepare_task_for_execution(session: Session, task_run: EvalTaskRunRecord) -
         session.delete(task_run.review)
 
 
+def _update_run_progress_counts(session: Session, run: EvalRunRecord) -> None:
+    task_runs = _load_task_runs(session, run.run_id)
+    run.total_tasks = len(task_runs)
+    run.completed_tasks = sum(
+        1 for task_run in task_runs if task_run.status == RunStatus.completed.value
+    )
+    run.failed_tasks = sum(1 for task_run in task_runs if task_run.status == RunStatus.failed.value)
+    pending_tasks = sum(1 for task_run in task_runs if task_run.status == RunStatus.pending.value)
+    if pending_tasks > 0:
+        run.status = RunStatus.running.value
+        run.completed_at = None
+
+
 def _recompute_run_aggregation(
     session: Session,
     run: EvalRunRecord,
@@ -694,6 +739,7 @@ def execute_run(
         adapter_config = _build_adapter_config(run, task_run)
         result = _run_task_with_adapter(adapter, task_run, adapter_config)
         _apply_task_result(session, run, task_run, result)
+        _update_run_progress_counts(session, run)
         session.commit()
 
     _recompute_run_aggregation(session, run, allow_restart=True)
@@ -750,3 +796,82 @@ def update_run_baseline(session: Session, run_id: str, baseline: bool) -> RunDet
     session.commit()
     session.refresh(run)
     return _run_detail_schema(run)
+
+
+def _candidate_agent_id(run: EvalRunRecord) -> str | None:
+    raw_agent_id = run.agent_version_snapshot_json.get("agent_id")
+    return str(raw_agent_id) if raw_agent_id is not None else None
+
+
+def get_auto_compare(session: Session, run_id: str) -> AutoCompareSchema:
+    candidate_run = session.get(EvalRunRecord, run_id)
+    if candidate_run is None:
+        raise LookupError("Run not found.")
+
+    candidate_agent_id = _candidate_agent_id(candidate_run)
+    baseline_statement = select(EvalRunRecord).where(
+        EvalRunRecord.run_id != candidate_run.run_id,
+        EvalRunRecord.dataset_id == candidate_run.dataset_id,
+        EvalRunRecord.scorer_config_id == candidate_run.scorer_config_id,
+    )
+    candidate_runs = session.execute(
+        baseline_statement.order_by(EvalRunRecord.baseline.desc(), EvalRunRecord.created_at.desc())
+    ).scalars().all()
+
+    filtered_runs = [
+        run
+        for run in candidate_runs
+        if run.status in COMPARABLE_RUN_STATUSES
+        and (candidate_agent_id is None or _candidate_agent_id(run) == candidate_agent_id)
+    ]
+
+    selected_run: EvalRunRecord | None = None
+    selection_reason: str | None = None
+
+    for run in filtered_runs:
+        if run.baseline:
+            selected_run = run
+            selection_reason = "latest_baseline"
+            break
+    if selected_run is None and filtered_runs:
+        selected_run = filtered_runs[0]
+        selection_reason = "latest_comparable_run"
+
+    comparison: RunComparisonSchema | None = None
+    if (
+        selected_run is not None
+        and candidate_run.status in COMPARABLE_RUN_STATUSES
+        and selected_run.status in COMPARABLE_RUN_STATUSES
+    ):
+        comparison = get_run_comparison(session, selected_run.run_id, candidate_run.run_id)
+
+    return AutoCompareSchema(
+        baseline_run_id=selected_run.run_id if selected_run is not None else None,
+        candidate_run_id=candidate_run.run_id,
+        selection_reason=selection_reason,
+        comparison=comparison.model_dump(mode="json") if comparison is not None else None,
+    )
+
+
+def create_quick_run(session: Session, payload: QuickRunRequestSchema) -> QuickRunResponseSchema:
+    defaults = get_registry_defaults(session)
+    if not defaults.default_dataset_id or not defaults.default_scorer_config_id:
+        raise ValueError("Quick run defaults must be configured before launching a quick run.")
+
+    run = create_run(
+        session,
+        RunCreateRequestSchema(
+            dataset_id=defaults.default_dataset_id,
+            agent_version_id=payload.agent_version_id,
+            scorer_config_id=defaults.default_scorer_config_id,
+            adapter_type=payload.adapter_type,
+            adapter_config=payload.adapter_config,
+            experiment_tag=payload.experiment_tag,
+            notes=payload.notes,
+        ),
+    )
+    detail = get_run_detail(session, run.run_id)
+    return QuickRunResponseSchema(
+        run=detail,
+        auto_compare=get_auto_compare(session, run.run_id),
+    )

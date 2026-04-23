@@ -3,8 +3,21 @@ import Link from "next/link";
 import { ReviewQueuePanel } from "@/components/review-queue-panel";
 import { getReviewQueue } from "@/lib/runs";
 
-export default async function ReviewsPage() {
-  const queue = await getReviewQueue();
+type ReviewsPageProps = {
+  searchParams: Promise<{ page?: string; review_status?: string; failure_reason?: string }>;
+};
+
+export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const page = Number(resolvedSearchParams.page ?? "1") || 1;
+  const reviewStatus = resolvedSearchParams.review_status?.trim() || undefined;
+  const failureReason = resolvedSearchParams.failure_reason?.trim() || undefined;
+  const queue = await getReviewQueue({
+    page,
+    per_page: 10,
+    review_status: reviewStatus,
+    failure_reason: failureReason,
+  });
 
   return (
     <main
@@ -39,7 +52,10 @@ export default async function ReviewsPage() {
         </p>
       </section>
 
-      <ReviewQueuePanel queue={queue} />
+      <ReviewQueuePanel
+        queue={queue}
+        filters={{ review_status: reviewStatus, failure_reason: failureReason }}
+      />
     </main>
   );
 }

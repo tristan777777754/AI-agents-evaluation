@@ -1,13 +1,21 @@
 import type {
+  AgentCreateRequest,
+  AgentVersionCreateRequest,
+  AutoCompare,
   RegistryList,
+  RegistryDefaults,
+  RegistryDefaultsUpdateRequest,
   ReviewDetail,
   ReviewQueue,
   ReviewUpsertRequest,
+  QuickRunRequest,
+  QuickRunResponse,
   RunComparison,
   TraceComparison,
   RunDashboardSummary,
   RunCreateRequest,
   RunDetail,
+  RunListPage,
   RunSummary,
   RunTaskList,
   TaskRunDetail,
@@ -41,11 +49,80 @@ export async function getRegistry(): Promise<RegistryList> {
   return parseResponse<RegistryList>(response);
 }
 
-export async function listRuns(): Promise<RunSummary[]> {
-  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs`, {
+function parseRunListHeaders(response: Response, items: RunSummary[]): RunListPage {
+  return {
+    items,
+    total_count: Number(response.headers.get("X-Total-Count") ?? items.length),
+    page: Number(response.headers.get("X-Page") ?? 1),
+    per_page: Number(response.headers.get("X-Per-Page") ?? (items.length || 1)),
+    has_next_page: response.headers.get("X-Has-Next-Page") === "true",
+  };
+}
+
+export async function createAgent(payload: AgentCreateRequest): Promise<void> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/registry/agents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  await parseResponse(response);
+}
+
+export async function createAgentVersion(payload: AgentVersionCreateRequest): Promise<void> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/registry/agent-versions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  await parseResponse(response);
+}
+
+export async function updateRegistryDefaults(
+  payload: RegistryDefaultsUpdateRequest,
+): Promise<RegistryDefaults> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/registry/defaults`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<RegistryDefaults>(response);
+}
+
+export async function listRuns(options?: {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  dataset_id?: string;
+  agent_version_id?: string;
+}): Promise<RunListPage> {
+  const params = new URLSearchParams();
+  if (options?.page) {
+    params.set("page", String(options.page));
+  }
+  if (options?.per_page) {
+    params.set("per_page", String(options.per_page));
+  }
+  if (options?.status) {
+    params.set("status", options.status);
+  }
+  if (options?.dataset_id) {
+    params.set("dataset_id", options.dataset_id);
+  }
+  if (options?.agent_version_id) {
+    params.set("agent_version_id", options.agent_version_id);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs${query}`, {
     cache: "no-store",
   });
-  return parseResponse<RunSummary[]>(response);
+  const items = await parseResponse<RunSummary[]>(response);
+  return parseRunListHeaders(response, items);
 }
 
 export async function getRunDetail(runId: string): Promise<RunDetail> {
@@ -71,6 +148,17 @@ export async function createRun(payload: RunCreateRequest): Promise<RunDetail> {
     body: JSON.stringify(payload),
   });
   return parseResponse<RunDetail>(response);
+}
+
+export async function createQuickRun(payload: QuickRunRequest): Promise<QuickRunResponse> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs/quick`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<QuickRunResponse>(response);
 }
 
 export async function pinRunBaseline(runId: string, baseline: boolean): Promise<RunDetail> {
@@ -119,6 +207,13 @@ export async function getRunComparison(
   return parseResponse<RunComparison>(response);
 }
 
+export async function getAutoCompare(runId: string): Promise<AutoCompare> {
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/runs/${runId}/auto-compare`, {
+    cache: "no-store",
+  });
+  return parseResponse<AutoCompare>(response);
+}
+
 export async function getTraceComparison(
   baselineRunId: string,
   candidateRunId: string,
@@ -135,8 +230,27 @@ export async function getTraceComparison(
   return parseResponse<TraceComparison>(response);
 }
 
-export async function getReviewQueue(): Promise<ReviewQueue> {
-  const response = await fetch(`${getBackendBaseUrl()}/api/v1/reviews/queue`, {
+export async function getReviewQueue(options?: {
+  page?: number;
+  per_page?: number;
+  review_status?: string;
+  failure_reason?: string;
+}): Promise<ReviewQueue> {
+  const params = new URLSearchParams();
+  if (options?.page) {
+    params.set("page", String(options.page));
+  }
+  if (options?.per_page) {
+    params.set("per_page", String(options.per_page));
+  }
+  if (options?.review_status) {
+    params.set("review_status", options.review_status);
+  }
+  if (options?.failure_reason) {
+    params.set("failure_reason", options.failure_reason);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const response = await fetch(`${getBackendBaseUrl()}/api/v1/reviews/queue${query}`, {
     cache: "no-store",
   });
   return parseResponse<ReviewQueue>(response);
@@ -157,13 +271,16 @@ export async function upsertTaskReview(
 }
 
 export type {
+  AutoCompare,
   RegistryList,
   RunDashboardSummary,
+  QuickRunResponse,
   ReviewDetail,
   ReviewQueue,
   RunComparison,
   TraceComparison,
   RunDetail,
+  RunListPage,
   RunSummary,
   RunTaskList,
   TaskRunDetail,

@@ -46,7 +46,7 @@ class DatasetApprovalStatus(str, Enum):
 
 
 class PhaseMarker(BaseModel):
-    current_phase: str = "Phase 13"
+    current_phase: str = "Phase 14"
     scope: list[str]
     non_goals: list[str]
 
@@ -184,15 +184,16 @@ class PhaseContractSnapshot(BaseModel):
         return cls(
             phase=PhaseMarker(
                 scope=[
-                    "judge-backed and rubric-backed scorer paths with additive evidence payloads",
-                    "generated dataset drafts gated behind explicit approval",
-                    "failed-case promotion into regression-oriented snapshots",
-                    "tag-based subset execution without mutating prior snapshots",
+                    "database-backed registry CRUD with immutable agent version snapshots",
+                    "quick-run defaults and additive auto-compare convenience paths",
+                    "real run progress polling sourced from persisted task completion state",
+                    "pagination and basic filtering for runs, dataset items, "
+                    "and review queue views",
                 ],
                 non_goals=[
-                    "fully autonomous dataset generation without review",
-                    "production log ingestion pipelines",
-                    "phase-14 registry ergonomics or pagination work",
+                    "reliability sampling or repeated-run variance metrics",
+                    "phase-15+ multi-model governance work",
+                    "mutating existing agent version snapshots after creation",
                     "breaking existing compare semantics or core entity names",
                 ],
             ),

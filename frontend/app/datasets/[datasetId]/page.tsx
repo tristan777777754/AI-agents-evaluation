@@ -6,15 +6,23 @@ import { BackendApiError, getDatasetDetail, getDatasetItems } from "@/lib/datase
 
 type DatasetDetailPageProps = {
   params: Promise<{ datasetId: string }>;
+  searchParams: Promise<{ page?: string; tag?: string; category?: string }>;
 };
 
-export default async function DatasetDetailPage({ params }: DatasetDetailPageProps) {
+export default async function DatasetDetailPage({
+  params,
+  searchParams,
+}: DatasetDetailPageProps) {
   const { datasetId } = await params;
+  const resolvedSearchParams = await searchParams;
+  const page = Number(resolvedSearchParams.page ?? "1") || 1;
+  const tag = resolvedSearchParams.tag?.trim() || undefined;
+  const category = resolvedSearchParams.category?.trim() || undefined;
 
   try {
     const [dataset, datasetItems] = await Promise.all([
       getDatasetDetail(datasetId),
-      getDatasetItems(datasetId),
+      getDatasetItems(datasetId, undefined, { page, per_page: 10, tag, category }),
     ]);
 
     return (
@@ -63,7 +71,11 @@ export default async function DatasetDetailPage({ params }: DatasetDetailPagePro
           ) : null}
         </section>
 
-        <DatasetItemsTable datasetItems={datasetItems} />
+        <DatasetItemsTable
+          datasetItems={datasetItems}
+          datasetId={datasetId}
+          filters={{ tag, category }}
+        />
       </main>
     );
   } catch (error) {

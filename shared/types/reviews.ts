@@ -39,5 +39,8 @@ export type ReviewQueue = {
   total_count: number;
   pending_count: number;
   reviewed_count: number;
+  page: number;
+  per_page: number;
+  has_next_page: boolean;
   items: ReviewQueueItem[];
 };

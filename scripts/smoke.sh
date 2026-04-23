@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PHASE="${1:-phase13}"
+PHASE="${1:-phase14}"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -28,12 +28,12 @@ with TestClient(app) as client:
     health = client.get("/api/v1/meta/health")
     assert health.status_code == 200, health.text
     assert health.json()["status"] == "ok", health.json()
-    assert health.json()["phase"] == "phase13", health.json()
+    assert health.json()["phase"].startswith("phase"), health.json()
 
     contracts = client.get("/api/v1/meta/contracts")
     assert contracts.status_code == 200, contracts.text
     body = contracts.json()
-    assert body["phase"]["current_phase"] == "Phase 13", body
+    assert body["phase"]["current_phase"] == "Phase 14", body
     assert "partial_success" in body["run_statuses"], body
 
     if __import__("os").environ["PHASE"] == "phase1":
@@ -690,6 +690,198 @@ with TestClient(app) as client:
     assert all("subset" in item["dataset_item_tags"] for item in subset_tasks.json()["items"]), subset_tasks.json()
 
     if os.environ["PHASE"] == "phase13":
+        print("Backend smoke checks passed.")
+        raise SystemExit(0)
+
+    registry_before = client.get("/api/v1/registry")
+    assert registry_before.status_code == 200, registry_before.text
+    registry_before_body = registry_before.json()
+    assert "agents" in registry_before_body, registry_before_body
+    assert "defaults" in registry_before_body, registry_before_body
+
+    created_agent = client.post(
+        "/api/v1/registry/agents",
+        json={
+            "agent_id": "agent_registry_smoke",
+            "name": "Registry Smoke Agent",
+            "description": "Created during phase14 smoke.",
+            "owner_id": "qa",
+        },
+    )
+    assert created_agent.status_code == 201, created_agent.text
+
+    created_version = client.post(
+        "/api/v1/registry/agent-versions",
+        json={
+            "agent_version_id": "av_registry_smoke_v1",
+            "agent_id": "agent_registry_smoke",
+            "version_name": "v1",
+            "model": "gpt-4.1-mini",
+            "prompt_hash": "sha256:registry-smoke-v1",
+            "config_json": {"system_prompt": "Phase 14 smoke prompt."},
+        },
+    )
+    assert created_version.status_code == 201, created_version.text
+
+    registry_after = client.get("/api/v1/registry")
+    assert registry_after.status_code == 200, registry_after.text
+    registry_after_body = registry_after.json()
+    assert any(
+        item["agent_version_id"] == "av_registry_smoke_v1"
+        for item in registry_after_body["agent_versions"]
+    ), registry_after_body
+
+    defaults = client.put(
+        "/api/v1/registry/defaults",
+        json={
+            "default_dataset_id": dataset_id,
+            "default_scorer_config_id": "sc_rule_based_v1",
+        },
+    )
+    assert defaults.status_code == 200, defaults.text
+    assert defaults.json()["default_dataset_id"] == dataset_id, defaults.json()
+
+    phase14_baseline = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {"failure_map": {"ds_item_003": True}},
+        },
+    )
+    assert phase14_baseline.status_code == 201, phase14_baseline.text
+    phase14_baseline_body = phase14_baseline.json()
+
+    phase14_pin = client.post(
+        f"/api/v1/runs/{phase14_baseline_body['run_id']}/baseline",
+        json={"baseline": True},
+    )
+    assert phase14_pin.status_code == 200, phase14_pin.text
+
+    quick_run = client.post(
+        "/api/v1/runs/quick",
+        json={
+            "agent_version_id": "av_support_qa_v2",
+            "adapter_type": "stub",
+            "adapter_config": {},
+            "experiment_tag": "phase14-smoke",
+            "notes": "Quick run smoke path",
+        },
+    )
+    assert quick_run.status_code == 201, quick_run.text
+    quick_run_body = quick_run.json()
+    assert quick_run_body["run"]["dataset_id"] == dataset_id, quick_run_body
+    assert quick_run_body["run"]["scorer_config_id"] == "sc_rule_based_v1", quick_run_body
+    assert quick_run_body["auto_compare"]["baseline_run_id"] == phase14_baseline_body["run_id"], quick_run_body
+    assert quick_run_body["auto_compare"]["selection_reason"] == "latest_baseline", quick_run_body
+    assert quick_run_body["auto_compare"]["comparison"]["candidate_run_id"] == quick_run_body["run"]["run_id"], quick_run_body
+
+    paged_runs = client.get(
+        "/api/v1/runs",
+        params={"page": 1, "per_page": 1, "agent_version_id": "av_support_qa_v1"},
+    )
+    assert paged_runs.status_code == 200, paged_runs.text
+    assert paged_runs.headers["X-Page"] == "1", paged_runs.headers
+    assert paged_runs.headers["X-Per-Page"] == "1", paged_runs.headers
+    assert paged_runs.headers["X-Total-Count"] >= "1", paged_runs.headers
+    assert len(paged_runs.json()) == 1, paged_runs.json()
+
+    paged_items = client.get(
+        f"/api/v1/datasets/{dataset_id}/items",
+        params={"page": 1, "per_page": 1, "tag": "subset"},
+    )
+    assert paged_items.status_code == 200, paged_items.text
+    paged_items_body = paged_items.json()
+    assert paged_items_body["page"] == 1, paged_items_body
+    assert paged_items_body["per_page"] == 1, paged_items_body
+    assert paged_items_body["has_next_page"] is True, paged_items_body
+
+    paged_reviews = client.get(
+        "/api/v1/reviews/queue",
+        params={"page": 1, "per_page": 1, "review_status": "reviewed"},
+    )
+    assert paged_reviews.status_code == 200, paged_reviews.text
+    paged_reviews_body = paged_reviews.json()
+    assert paged_reviews_body["page"] == 1, paged_reviews_body
+    assert paged_reviews_body["per_page"] == 1, paged_reviews_body
+    assert paged_reviews_body["items"][0]["review_status"] == "reviewed", paged_reviews_body
+
+    import threading
+    import time
+
+    import app.api.runs as runs_api
+    import app.services.runs as run_service
+    from app.db import SessionLocal
+
+    original_delay = runs_api.execute_run_task.delay
+    runs_api.execute_run_task.delay = lambda *_args, **_kwargs: None
+
+    class SlowProgressAdapter:
+        def run_task(self, input_text: str, config: dict[str, object]) -> dict[str, object]:
+            time.sleep(0.03)
+            output = str(config["expected_output"])
+            return {
+                "final_output": output,
+                "latency_ms": 50,
+                "token_usage": {"prompt": 8, "completion": 4},
+                "cost": 0.0,
+                "termination_reason": "completed",
+                "error": None,
+                "trace_events": [
+                    {"step_index": 0, "event_type": "agent_start", "input": input_text},
+                    {"step_index": 1, "event_type": "final_output", "output": output},
+                ],
+            }
+
+    run_service._build_adapter = lambda _adapter_type: SlowProgressAdapter()
+
+    progress_run = client.post(
+        "/api/v1/runs",
+        json={
+            "dataset_id": dataset_id,
+            "agent_version_id": "av_support_qa_v1",
+            "scorer_config_id": "sc_rule_based_v1",
+            "adapter_type": "stub",
+            "adapter_config": {},
+        },
+    )
+    assert progress_run.status_code == 201, progress_run.text
+    progress_run_body = progress_run.json()
+    assert progress_run_body["status"] == "pending", progress_run_body
+
+    def execute_progress_run() -> None:
+        with SessionLocal() as session:
+            run_service.execute_run(session, progress_run_body["run_id"])
+
+    worker = threading.Thread(target=execute_progress_run, daemon=True)
+    worker.start()
+
+    observed_running_progress = False
+    for _ in range(40):
+        polled = client.get(f"/api/v1/runs/{progress_run_body['run_id']}")
+        assert polled.status_code == 200, polled.text
+        polled_body = polled.json()
+        if (
+            polled_body["status"] == "running"
+            and 0 < polled_body["completed_tasks"] < polled_body["total_tasks"]
+        ):
+            observed_running_progress = True
+            break
+        time.sleep(0.02)
+
+    worker.join(timeout=5)
+    final_progress = client.get(f"/api/v1/runs/{progress_run_body['run_id']}")
+    assert final_progress.status_code == 200, final_progress.text
+    assert observed_running_progress is True, final_progress.json()
+    assert final_progress.json()["status"] == "completed", final_progress.json()
+    assert (
+        final_progress.json()["completed_tasks"] == final_progress.json()["total_tasks"]
+    ), final_progress.json()
+    runs_api.execute_run_task.delay = original_delay
+
+    if os.environ["PHASE"] == "phase14":
         print("Backend smoke checks passed.")
         raise SystemExit(0)
 

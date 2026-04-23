@@ -79,9 +79,31 @@ export async function getDatasetDetail(
 export async function getDatasetItems(
   datasetId: string,
   snapshotId?: string,
+  options?: {
+    page?: number;
+    per_page?: number;
+    tag?: string;
+    category?: string;
+  },
 ): Promise<DatasetItemList> {
-  const params = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : "";
-  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/items${params}`, {
+  const params = new URLSearchParams();
+  if (snapshotId) {
+    params.set("snapshot_id", snapshotId);
+  }
+  if (options?.page) {
+    params.set("page", String(options.page));
+  }
+  if (options?.per_page) {
+    params.set("per_page", String(options.per_page));
+  }
+  if (options?.tag) {
+    params.set("tag", options.tag);
+  }
+  if (options?.category) {
+    params.set("category", options.category);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const response = await fetch(`${backendBaseUrl}/api/v1/datasets/${datasetId}/items${query}`, {
     cache: "no-store",
   });
   return parseResponse<DatasetItemList>(response);

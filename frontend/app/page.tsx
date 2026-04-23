@@ -5,6 +5,7 @@ import { DatasetDraftGenerator } from "@/components/dataset-draft-generator";
 import { DatasetDraftList } from "@/components/dataset-draft-list";
 import { DatasetList } from "@/components/dataset-list";
 import { DatasetUploadForm } from "@/components/dataset-upload-form";
+import { RegistryManager } from "@/components/registry-manager";
 import { ReviewQueuePanel } from "@/components/review-queue-panel";
 import { RunDashboard } from "@/components/run-dashboard";
 import { RunLauncherForm } from "@/components/run-launcher-form";
@@ -30,10 +31,37 @@ import {
 
 const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? "http://localhost:8000";
 
-export default async function HomePage() {
+type HomePageProps = {
+  searchParams: Promise<{
+    runs_page?: string;
+    runs_status?: string;
+    runs_agent_version_id?: string;
+  }>;
+};
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const resolvedSearchParams = await searchParams;
+  const runsPageNumber = Number(resolvedSearchParams.runs_page ?? "1") || 1;
+  const runsStatus = resolvedSearchParams.runs_status?.trim() || undefined;
+  const runsAgentVersionId =
+    resolvedSearchParams.runs_agent_version_id?.trim() || undefined;
   let datasets: DatasetSummary[] = [];
-  let runs: RunSummary[] = [];
-  let registry: RegistryList = { agent_versions: [], scorer_configs: [] };
+  let runPage = {
+    items: [] as RunSummary[],
+    total_count: 0,
+    page: runsPageNumber,
+    per_page: 10,
+    has_next_page: false,
+  };
+  let registry: RegistryList = {
+    agents: [],
+    agent_versions: [],
+    scorer_configs: [],
+    defaults: {
+      default_dataset_id: null,
+      default_scorer_config_id: null,
+    },
+  };
   let datasetLoadError: string | null = null;
   let dashboardSummary: RunDashboardSummary | null = null;
   let dashboardLoadError: string | null = null;
@@ -46,14 +74,23 @@ export default async function HomePage() {
   let contractSnapshot = phase1ContractPreview;
 
   try {
-    [datasets, runs, registry] = await Promise.all([listDatasets(), listRuns(), getRegistry()]);
+    [datasets, runPage, registry] = await Promise.all([
+      listDatasets(),
+      listRuns({
+        page: runsPageNumber,
+        per_page: 10,
+        status: runsStatus,
+        agent_version_id: runsAgentVersionId,
+      }),
+      getRegistry(),
+    ]);
   } catch (error) {
     datasetLoadError =
       error instanceof Error ? error.message : "Workbench data could not be loaded.";
   }
 
   try {
-    reviewQueue = await getReviewQueue();
+    reviewQueue = await getReviewQueue({ page: 1, per_page: 4 });
   } catch (error) {
     reviewQueueLoadError =
       error instanceof Error ? error.message : "Review queue could not be loaded.";
@@ -79,9 +116,9 @@ export default async function HomePage() {
     contractSnapshot = phase1ContractPreview;
   }
 
-  if (!datasetLoadError && runs.length > 0) {
+  if (!datasetLoadError && runPage.items.length > 0) {
     try {
-      dashboardSummary = await getRunDashboardSummary(runs[0].run_id);
+      dashboardSummary = await getRunDashboardSummary(runPage.items[0].run_id);
     } catch (error) {
       dashboardLoadError =
         error instanceof Error ? error.message : "Dashboard metrics could not be loaded.";
@@ -144,7 +181,7 @@ export default async function HomePage() {
           alignItems: "start",
         }}
       >
-        <CompareLauncherForm runs={runs} />
+        <CompareLauncherForm runs={runPage.items} />
         <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
       </section>
 
@@ -179,6 +216,8 @@ export default async function HomePage() {
         )}
       </section>
 
+      {!datasetLoadError ? <RegistryManager datasets={datasets} registry={registry} /> : null}
+
       <section
         style={{
           display: "grid",
@@ -191,7 +230,13 @@ export default async function HomePage() {
         <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
       </section>
 
-      {!datasetLoadError ? <RunList runs={runs} /> : null}
+      {!datasetLoadError ? (
+        <RunList
+          runPage={runPage}
+          registry={registry}
+          filters={{ status: runsStatus, agent_version_id: runsAgentVersionId }}
+        />
+      ) : null}
     </main>
   );
 }

@@ -5,6 +5,11 @@ import type { ReviewQueue } from "@/lib/runs";
 type ReviewQueuePanelProps = {
   queue: ReviewQueue | null;
   loadError?: string | null;
+  filters?: {
+    review_status?: string;
+    failure_reason?: string;
+  };
+  basePath?: string;
 };
 
 const panelStyle = {
@@ -17,7 +22,12 @@ const panelStyle = {
   boxShadow: "var(--shadow)",
 } as const;
 
-export function ReviewQueuePanel({ queue, loadError = null }: ReviewQueuePanelProps) {
+export function ReviewQueuePanel({
+  queue,
+  loadError = null,
+  filters = {},
+  basePath = "/reviews",
+}: ReviewQueuePanelProps) {
   if (loadError) {
     return (
       <section style={panelStyle}>
@@ -54,10 +64,43 @@ export function ReviewQueuePanel({ queue, loadError = null }: ReviewQueuePanelPr
             {queue.pending_count} pending · {queue.reviewed_count} reviewed
           </h2>
         </div>
-        <Link href="/reviews" style={{ color: "var(--accent)" }}>
+        <Link href={basePath} style={{ color: "var(--accent)" }}>
           Open review queue
         </Link>
       </div>
+
+      <form
+        method="get"
+        action={basePath}
+        style={{
+          display: "grid",
+          gap: "0.75rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        }}
+      >
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Review status</span>
+          <select name="review_status" defaultValue={filters.review_status ?? ""}>
+            <option value="">All</option>
+            <option value="pending">pending</option>
+            <option value="reviewed">reviewed</option>
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Failure reason</span>
+          <select name="failure_reason" defaultValue={filters.failure_reason ?? ""}>
+            <option value="">All</option>
+            <option value="answer_incorrect">answer_incorrect</option>
+            <option value="tool_error">tool_error</option>
+            <option value="format_error">format_error</option>
+            <option value="execution_failed">execution_failed</option>
+          </select>
+        </label>
+        <input type="hidden" name="page" value="1" />
+        <button type="submit" style={{ width: "fit-content", alignSelf: "end" }}>
+          Apply filters
+        </button>
+      </form>
 
       {queue.items.length === 0 ? (
         <p style={{ margin: 0, color: "var(--muted)" }}>No tasks currently require manual review.</p>
@@ -89,6 +132,40 @@ export function ReviewQueuePanel({ queue, loadError = null }: ReviewQueuePanelPr
           ))}
         </div>
       )}
+
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: "var(--muted)" }}>
+          Page {queue.page} · showing {queue.items.length} of {queue.total_count}
+        </span>
+        {queue.page > 1 ? (
+          <Link
+            href={`${basePath}?page=${queue.page - 1}${
+              filters.review_status ? `&review_status=${encodeURIComponent(filters.review_status)}` : ""
+            }${
+              filters.failure_reason
+                ? `&failure_reason=${encodeURIComponent(filters.failure_reason)}`
+                : ""
+            }`}
+            style={{ color: "var(--accent)" }}
+          >
+            Previous
+          </Link>
+        ) : null}
+        {queue.has_next_page ? (
+          <Link
+            href={`${basePath}?page=${queue.page + 1}${
+              filters.review_status ? `&review_status=${encodeURIComponent(filters.review_status)}` : ""
+            }${
+              filters.failure_reason
+                ? `&failure_reason=${encodeURIComponent(filters.failure_reason)}`
+                : ""
+            }`}
+            style={{ color: "var(--accent)" }}
+          >
+            Next
+          </Link>
+        ) : null}
+      </div>
     </section>
   );
 }

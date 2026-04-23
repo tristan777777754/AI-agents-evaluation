@@ -26,6 +26,9 @@ class DatasetItemListSchema(BaseModel):
     dataset_id: str
     snapshot_id: str
     total_count: int
+    page: int = 1
+    per_page: int
+    has_next_page: bool = False
     items: list[DatasetItemSchema]
 
 

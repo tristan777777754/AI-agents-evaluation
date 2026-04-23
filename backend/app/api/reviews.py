@@ -14,5 +14,17 @@ ReviewSession = Annotated[Session, Depends(get_session)]
 
 
 @router.get("/queue", response_model=ReviewQueueSchema)
-def get_review_queue(session: ReviewSession) -> ReviewQueueSchema:
-    return list_review_queue(session)
+def get_review_queue(
+    session: ReviewSession,
+    page: int = 1,
+    per_page: int = 25,
+    review_status: str | None = None,
+    failure_reason: str | None = None,
+) -> ReviewQueueSchema:
+    return list_review_queue(
+        session,
+        page=max(page, 1),
+        per_page=min(max(per_page, 1), 100),
+        review_status=review_status,
+        failure_reason=failure_reason,
+    )

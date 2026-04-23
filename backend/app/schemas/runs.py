@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.schemas.contracts import (
     AgentVersionSchema,
@@ -75,8 +75,29 @@ class RunDetailSchema(RunSummarySchema):
     scorer_config: ScorerConfigSchema
 
 
-class RegistryListSchema(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+class RunListPageSchema(BaseModel):
+    items: list[RunSummarySchema] = Field(default_factory=list)
+    total_count: int
+    page: int
+    per_page: int
+    has_next_page: bool
 
-    agent_versions: list[AgentVersionSchema] = Field(default_factory=list)
-    scorer_configs: list[ScorerConfigSchema] = Field(default_factory=list)
+
+class QuickRunRequestSchema(BaseModel):
+    agent_version_id: str
+    adapter_type: Literal["stub", "openai"] = "stub"
+    adapter_config: dict[str, object] = Field(default_factory=dict)
+    experiment_tag: str | None = None
+    notes: str | None = None
+
+
+class AutoCompareSchema(BaseModel):
+    baseline_run_id: str | None = None
+    candidate_run_id: str
+    selection_reason: str | None = None
+    comparison: dict[str, object] | None = None
+
+
+class QuickRunResponseSchema(BaseModel):
+    run: RunDetailSchema
+    auto_compare: AutoCompareSchema

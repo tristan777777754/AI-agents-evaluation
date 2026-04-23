@@ -1,4 +1,5 @@
 import type {
+  Agent,
   AgentVersion,
   EvalRun,
   FailureReason,
@@ -6,6 +7,7 @@ import type {
   ScorerConfig,
   TraceSummary,
 } from "./contracts";
+import type { RunComparison } from "./compare";
 
 export type RunCreateRequest = {
   dataset_id: string;
@@ -56,6 +58,14 @@ export type RunTaskList = {
   items: RunTaskResult[];
 };
 
+export type RunListPage = {
+  items: RunSummary[];
+  total_count: number;
+  page: number;
+  per_page: number;
+  has_next_page: boolean;
+};
+
 export type RunSummary = EvalRun & {
   adapter_type: string;
   total_tasks: number;
@@ -68,7 +78,52 @@ export type RunDetail = RunSummary & {
   scorer_config: ScorerConfig;
 };
 
+export type RegistryDefaults = {
+  default_dataset_id: string | null;
+  default_scorer_config_id: string | null;
+};
+
 export type RegistryList = {
+  agents: Agent[];
   agent_versions: AgentVersion[];
   scorer_configs: ScorerConfig[];
+  defaults: RegistryDefaults;
+};
+
+export type AgentCreateRequest = {
+  agent_id: string;
+  name: string;
+  description?: string | null;
+  owner_id?: string | null;
+};
+
+export type AgentVersionCreateRequest = {
+  agent_version_id: string;
+  agent_id: string;
+  version_name: string;
+  model: string;
+  prompt_hash: string;
+  config_json: Record<string, unknown>;
+};
+
+export type RegistryDefaultsUpdateRequest = RegistryDefaults;
+
+export type QuickRunRequest = {
+  agent_version_id: string;
+  adapter_type: string;
+  adapter_config: Record<string, unknown>;
+  experiment_tag: string | null;
+  notes: string | null;
+};
+
+export type AutoCompare = {
+  baseline_run_id: string | null;
+  candidate_run_id: string;
+  selection_reason: string | null;
+  comparison: RunComparison | null;
+};
+
+export type QuickRunResponse = {
+  run: RunDetail;
+  auto_compare: AutoCompare;
 };

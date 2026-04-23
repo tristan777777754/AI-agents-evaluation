@@ -87,7 +87,14 @@ def upsert_task_review(
     return _review_schema(review, task_run)
 
 
-def list_review_queue(session: Session) -> ReviewQueueSchema:
+def list_review_queue(
+    session: Session,
+    *,
+    page: int = 1,
+    per_page: int = 25,
+    review_status: str | None = None,
+    failure_reason: str | None = None,
+) -> ReviewQueueSchema:
     statement = (
         select(EvalTaskRunRecord)
         .options(selectinload(EvalTaskRunRecord.score))
@@ -104,8 +111,8 @@ def list_review_queue(session: Session) -> ReviewQueueSchema:
 
     for task_run in task_runs:
         review = task_run.review
-        review_status = "reviewed" if review and review.verdict else "pending"
-        if review_status == "pending":
+        item_review_status = "reviewed" if review and review.verdict else "pending"
+        if item_review_status == "pending":
             pending_count += 1
         else:
             reviewed_count += 1
@@ -126,14 +133,33 @@ def list_review_queue(session: Session) -> ReviewQueueSchema:
                 ),
                 error_message=task_run.error_message,
                 final_output=task_run.final_output,
-                review_status=review_status,
+                review_status=item_review_status,
                 review=_review_schema(review, task_run) if review is not None else None,
             )
         )
 
+    if review_status:
+        requested_review_status = review_status.strip().lower()
+        items = [item for item in items if item.review_status.lower() == requested_review_status]
+    if failure_reason:
+        requested_failure_reason = failure_reason.strip().lower()
+        items = [
+            item
+            for item in items
+            if item.failure_reason is not None
+            and item.failure_reason.value.lower() == requested_failure_reason
+        ]
+
+    total_count = len(items)
+    start = max(page - 1, 0) * per_page
+    end = start + per_page
+    paged_items = items[start:end]
     return ReviewQueueSchema(
-        total_count=len(items),
+        total_count=total_count,
         pending_count=pending_count,
         reviewed_count=reviewed_count,
-        items=items,
+        page=page,
+        per_page=per_page,
+        has_next_page=end < total_count,
+        items=paged_items,
     )

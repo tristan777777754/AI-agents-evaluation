@@ -44,4 +44,7 @@ class ReviewQueueSchema(BaseModel):
     total_count: int
     pending_count: int
     reviewed_count: int
+    page: int = 1
+    per_page: int
+    has_next_page: bool = False
     items: list[ReviewQueueItemSchema]

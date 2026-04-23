@@ -15,6 +15,9 @@ export type DatasetItemList = {
   dataset_id: string;
   snapshot_id: string;
   total_count: number;
+  page: number;
+  per_page: number;
+  has_next_page: boolean;
   items: DatasetItem[];
 };
 

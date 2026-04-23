@@ -658,14 +658,36 @@ def get_dataset_items(
     dataset_id: str,
     *,
     snapshot_id: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    tag: str | None = None,
+    category: str | None = None,
 ) -> DatasetItemListSchema:
     _, snapshot = _get_snapshot(session, dataset_id, snapshot_id)
     records = _snapshot_items(session, snapshot.dataset_snapshot_id)
+    if tag:
+        tag_value = tag.strip().lower()
+        records = [
+            record
+            for record in records
+            if tag_value in {entry.lower() for entry in record.tag_list_json or []}
+        ]
+    if category:
+        category_value = category.strip().lower()
+        records = [record for record in records if record.category.lower() == category_value]
+
+    total_count = len(records)
+    start = max(page - 1, 0) * per_page
+    end = start + per_page
+    paged_records = records[start:end]
     return DatasetItemListSchema(
         dataset_id=dataset_id,
         snapshot_id=snapshot.dataset_snapshot_id,
-        total_count=len(records),
-        items=[_item_schema(record) for record in records],
+        total_count=total_count,
+        page=page,
+        per_page=per_page,
+        has_next_page=end < total_count,
+        items=[_item_schema(record) for record in paged_records],
     )
 
 

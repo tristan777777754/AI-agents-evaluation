@@ -1,10 +1,32 @@
+import Link from "next/link";
+
 import type { DatasetItemList } from "@/lib/datasets";
 
 type DatasetItemsTableProps = {
   datasetItems: DatasetItemList;
+  datasetId: string;
+  filters: {
+    tag?: string;
+    category?: string;
+  };
 };
 
-export function DatasetItemsTable({ datasetItems }: DatasetItemsTableProps) {
+export function DatasetItemsTable({ datasetItems, datasetId, filters }: DatasetItemsTableProps) {
+  const previousPage = datasetItems.page > 1 ? datasetItems.page - 1 : null;
+  const nextPage = datasetItems.has_next_page ? datasetItems.page + 1 : null;
+
+  function buildHref(page: number): string {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    if (filters.tag) {
+      params.set("tag", filters.tag);
+    }
+    if (filters.category) {
+      params.set("category", filters.category);
+    }
+    return `/datasets/${datasetId}?${params.toString()}`;
+  }
+
   return (
     <section
       style={{
@@ -23,6 +45,33 @@ export function DatasetItemsTable({ datasetItems }: DatasetItemsTableProps) {
         </p>
         <h2 style={{ margin: "0.35rem 0 0" }}>{datasetItems.total_count} dataset items</h2>
       </div>
+
+      <form
+        method="get"
+        style={{
+          display: "grid",
+          gap: "0.75rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        }}
+      >
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Tag</span>
+          <input name="tag" type="text" defaultValue={filters.tag ?? ""} placeholder="regression" />
+        </label>
+        <label style={{ display: "grid", gap: "0.35rem" }}>
+          <span>Category</span>
+          <input
+            name="category"
+            type="text"
+            defaultValue={filters.category ?? ""}
+            placeholder="refund_policy"
+          />
+        </label>
+        <input type="hidden" name="page" value="1" />
+        <button type="submit" style={{ width: "fit-content", alignSelf: "end" }}>
+          Apply filters
+        </button>
+      </form>
 
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -56,6 +105,22 @@ export function DatasetItemsTable({ datasetItems }: DatasetItemsTableProps) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: "var(--muted)" }}>
+          Page {datasetItems.page} · showing {datasetItems.items.length} of {datasetItems.total_count}
+        </span>
+        {previousPage ? (
+          <Link href={buildHref(previousPage)} style={{ color: "var(--accent)" }}>
+            Previous
+          </Link>
+        ) : null}
+        {nextPage ? (
+          <Link href={buildHref(nextPage)} style={{ color: "var(--accent)" }}>
+            Next
+          </Link>
+        ) : null}
       </div>
     </section>
   );
