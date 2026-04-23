@@ -59,8 +59,15 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
           <h2 style={{ margin: "0.35rem 0 0" }}>Need two persisted runs</h2>
         </div>
         <p style={{ margin: 0, color: "var(--muted)" }}>
-          Launch at least two persisted runs before opening the compare view.
+          Compare needs two completed or partially completed runs. Start one baseline run, then
+          start another candidate run against the same dataset.
         </p>
+        <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--muted)", lineHeight: 1.55 }}>
+          <li>Go to Step 2, Run evaluation.</li>
+          <li>Start a run for the current agent version.</li>
+          <li>Change the agent version or settings, then start a second run.</li>
+          <li>Come back here and select baseline vs candidate.</li>
+        </ol>
       </section>
     );
   }
@@ -73,6 +80,11 @@ export function CompareLauncherForm({ runs }: CompareLauncherFormProps) {
         </p>
         <h2 style={{ margin: "0.35rem 0 0" }}>Baseline vs candidate</h2>
       </div>
+
+      <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.5 }}>
+        Pick the older or approved run as the baseline, then pick the newer run as the candidate.
+        The compare page will show metric deltas, regressions, improvements, and trace differences.
+      </p>
 
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span>Baseline run</span>
