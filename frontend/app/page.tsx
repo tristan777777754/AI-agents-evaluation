@@ -10,6 +10,7 @@ import { ReviewQueuePanel } from "@/components/review-queue-panel";
 import { RunDashboard } from "@/components/run-dashboard";
 import { RunLauncherForm } from "@/components/run-launcher-form";
 import { RunList } from "@/components/run-list";
+import { WorkbenchTabs } from "@/components/workbench-tabs";
 import { getLatestCalibrationReport, type CalibrationReport } from "@/lib/calibration";
 import { getContractSnapshot, phase1ContractPreview } from "@/lib/contracts";
 import {
@@ -154,12 +155,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </p>
         </div>
 
-        <nav className="hero-actions" aria-label="Primary workbench actions">
-          <a href="#datasets">Upload dataset</a>
-          <a href="#launch-run">Start run</a>
-          <a href="#results">Open results</a>
-          <a href="#compare-review">Compare or review</a>
-        </nav>
+        <div className="hero-actions" aria-label="Primary workbench actions">
+          <span>Use the tabs below from left to right.</span>
+        </div>
       </section>
 
       <section className="workflow-panel" aria-labelledby="workflow-heading">
@@ -200,100 +198,66 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         />
       </section>
 
-      <section id="datasets" className="section-stack" aria-labelledby="datasets-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Step 1</p>
-          <h2 id="datasets-heading">Datasets</h2>
-        </div>
-        <div className="two-column">
-        <DatasetUploadForm />
-        {datasetLoadError ? (
-          <section
-            style={{
-              display: "grid",
-              gap: "0.75rem",
-              padding: "1.5rem",
-              borderRadius: "24px",
-              border: "1px solid rgba(174, 63, 19, 0.2)",
-              background: "rgba(174, 63, 19, 0.08)",
-            }}
-          >
-            <strong>Dataset list unavailable</strong>
-            <p style={{ margin: 0 }}>{datasetLoadError}</p>
-          </section>
-        ) : (
-          <DatasetList datasets={datasets} />
-        )}
-        </div>
-      </section>
-
-      {!datasetLoadError ? (
-        <section id="launch-run" className="section-stack" aria-labelledby="launch-heading">
-          <div className="section-heading">
-            <p className="eyebrow">Step 2</p>
-            <h2 id="launch-heading">Run evaluation</h2>
+      <WorkbenchTabs
+        datasetsPanel={
+          <div className="two-column">
+            <DatasetUploadForm />
+            {datasetLoadError ? (
+              <section
+                style={{
+                  display: "grid",
+                  gap: "0.75rem",
+                  padding: "1.5rem",
+                  borderRadius: "24px",
+                  border: "1px solid rgba(174, 63, 19, 0.2)",
+                  background: "rgba(174, 63, 19, 0.08)",
+                }}
+              >
+                <strong>Dataset list unavailable</strong>
+                <p style={{ margin: 0 }}>{datasetLoadError}</p>
+              </section>
+            ) : (
+              <DatasetList datasets={datasets} />
+            )}
           </div>
-          <RunLauncherForm datasets={datasets} registry={registry} />
-        </section>
-      ) : null}
-
-      <section id="results" className="section-stack" aria-labelledby="results-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Step 3</p>
-          <h2 id="results-heading">Results</h2>
-        </div>
-        <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
-        {!datasetLoadError ? (
-          <RunList
-            runPage={runPage}
-            registry={registry}
-            filters={{ status: runsStatus, agent_version_id: runsAgentVersionId }}
-          />
-        ) : null}
-      </section>
-
-      <section id="compare-review" className="section-stack" aria-labelledby="compare-review-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Decision Support</p>
-          <h2 id="compare-review-heading">Compare and review</h2>
-        </div>
-        <div className="two-column">
-          <CompareLauncherForm runs={runPage.items} />
-          <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
-        </div>
-      </section>
-
-      {!datasetLoadError ? (
-        <section id="registry" className="section-stack" aria-labelledby="registry-heading">
-          <div className="section-heading">
-            <p className="eyebrow">Configuration</p>
-            <h2 id="registry-heading">Registry and defaults</h2>
+        }
+        launchPanel={
+          !datasetLoadError ? <RunLauncherForm datasets={datasets} registry={registry} /> : null
+        }
+        resultsPanel={
+          <div className="section-stack">
+            <RunDashboard summary={dashboardSummary} loadError={dashboardLoadError} />
+            {!datasetLoadError ? (
+              <RunList
+                runPage={runPage}
+                registry={registry}
+                filters={{ status: runsStatus, agent_version_id: runsAgentVersionId }}
+              />
+            ) : null}
           </div>
-          <RegistryManager datasets={datasets} registry={registry} />
-        </section>
-      ) : null}
-
-      <section className="section-stack" aria-labelledby="dataset-flywheel-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Dataset Flywheel</p>
-          <h2 id="dataset-flywheel-heading">Drafts and promotion</h2>
-        </div>
-        <div className="two-column">
-        <DatasetDraftGenerator />
-        <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
-        </div>
-      </section>
-
-      <section className="section-stack" aria-labelledby="governance-heading">
-        <div className="section-heading">
-          <p className="eyebrow">Governance</p>
-          <h2 id="governance-heading">Contracts and scorer credibility</h2>
-        </div>
-        <div className="two-column">
-          <CalibrationPanel report={calibrationReport} loadError={calibrationLoadError} />
-          <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
-        </div>
-      </section>
+        }
+        comparePanel={
+          <div className="two-column">
+            <CompareLauncherForm runs={runPage.items} />
+            <ReviewQueuePanel queue={reviewQueue} loadError={reviewQueueLoadError} />
+          </div>
+        }
+        registryPanel={
+          !datasetLoadError ? <RegistryManager datasets={datasets} registry={registry} /> : null
+        }
+        draftsPanel={
+          <div className="two-column">
+            <DatasetDraftGenerator />
+            <DatasetDraftList drafts={datasetDrafts} loadError={datasetDraftLoadError} />
+          </div>
+        }
+        governancePanel={
+          <div className="two-column">
+            <CalibrationPanel report={calibrationReport} loadError={calibrationLoadError} />
+            <ContractSummary contract={contractSnapshot} backendBaseUrl={backendBaseUrl} />
+          </div>
+        }
+      />
     </main>
   );
 }
