@@ -1,8 +1,40 @@
 # Agent Evaluation Workbench
 
-Agent Evaluation Workbench is an internal product for evaluating AI agents in a structured, repeatable way.
+Agent Evaluation Workbench is a side project built to practice **Harness Engineering** — a structured, document-driven approach to building software with AI coding agents in a phased, auditable way.
 
-It is not another agent. It is a quality workbench for teams that need to measure whether an agent version actually improved, inspect why failures happened, and compare runs over time using evidence instead of subjective demos.
+The project itself is a quality workbench for evaluating AI agents: upload a dataset, run a batch evaluation against a registered agent version, inspect traces, and compare runs with real metrics to determine whether a prompt or model change actually improved things.
+
+## How This Was Built — Harness Engineering
+
+Instead of coding freeform, the entire project was driven by a set of planning and specification documents that acted as the harness for each phase of work. Each phase had a defined scope, acceptance criteria, and a smoke test path before the next phase began.
+
+The documents that formed the harness are:
+
+| File | Role |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | Defines how AI coding agents must behave inside this repo — what to read first, what not to touch, how to validate work |
+| [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) | Product framing, target users, MVP scope, and success criteria |
+| [`TECH_SPEC.md`](TECH_SPEC.md) | System modules, data flow, API contracts, and technical design decisions |
+| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | Phase-by-phase delivery plan with per-phase acceptance criteria |
+| [`TESTING.md`](TESTING.md) | Validation strategy, smoke paths, and demo requirements |
+| [`TASK_TEMPLATE.md`](TASK_TEMPLATE.md) | Standard task brief format used to scope each phase of work |
+
+The implementation was broken into 10 phases, each delivered and validated before the next began:
+
+- **Phase 1** — Project skeleton and shared contracts
+- **Phase 2** — Dataset management (upload, validation, preview)
+- **Phase 3** — Evaluation run engine (stub adapter, Celery execution)
+- **Phase 4** — Trace persistence and case-level inspection
+- **Phase 5** — Run summary dashboard
+- **Phase 6** — Run comparison and review queue
+- **Phase 7** — Real OpenAI adapter and benchmark dataset
+- **Phase 8** — Reliability hardening (rerun, state guards, repair)
+- **Phase 9** — Scorer calibration and golden set
+- **Phase 10** — Dataset governance, snapshots, and experiment lineage
+
+This phased approach kept scope contained at each step and made it possible to validate the system end-to-end before adding complexity. It also demonstrated that AI agents can be directed reliably when given well-structured context rather than open-ended instructions.
+
+---
 
 ## What This Project Is
 
@@ -307,20 +339,20 @@ Smoke:
 
 If you want to understand the project quickly, start here:
 
-1. [PROJECT_OVERVIEW.md](/Users/tristan/AI-agents-evaluation/PROJECT_OVERVIEW.md)
+1. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
    Product framing, target users, MVP, and value proposition
-2. [TECH_SPEC.md](/Users/tristan/AI-agents-evaluation/TECH_SPEC.md)
+2. [TECH_SPEC.md](TECH_SPEC.md)
    System modules, data flow, contracts, and technical design
-3. [IMPLEMENTATION_PLAN.md](/Users/tristan/AI-agents-evaluation/IMPLEMENTATION_PLAN.md)
+3. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
    Phase-by-phase delivery plan and acceptance criteria
-4. [TESTING.md](/Users/tristan/AI-agents-evaluation/TESTING.md)
+4. [TESTING.md](TESTING.md)
    Validation strategy, smoke paths, and demo requirements
-5. [TASK_TEMPLATE.md](/Users/tristan/AI-agents-evaluation/TASK_TEMPLATE.md)
+5. [TASK_TEMPLATE.md](TASK_TEMPLATE.md)
    Standard task template for scoped phase work
 
 If you are using this repo with an AI coding workflow or harness-driven execution, read:
 
-- [AGENTS.md](/Users/tristan/AI-agents-evaluation/AGENTS.md)
+- [AGENTS.md](AGENTS.md)
 
 ## Source Of Truth
 
@@ -328,11 +360,11 @@ This README is an introduction to the project.
 
 The canonical planning and implementation rules live in the project documents below:
 
-1. [AGENTS.md](/Users/tristan/AI-agents-evaluation/AGENTS.md)
-2. [PROJECT_OVERVIEW.md](/Users/tristan/AI-agents-evaluation/PROJECT_OVERVIEW.md)
-3. [TECH_SPEC.md](/Users/tristan/AI-agents-evaluation/TECH_SPEC.md)
-4. [IMPLEMENTATION_PLAN.md](/Users/tristan/AI-agents-evaluation/IMPLEMENTATION_PLAN.md)
-5. [TESTING.md](/Users/tristan/AI-agents-evaluation/TESTING.md)
-6. [TASK_TEMPLATE.md](/Users/tristan/AI-agents-evaluation/TASK_TEMPLATE.md)
+1. [AGENTS.md](AGENTS.md)
+2. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
+3. [TECH_SPEC.md](TECH_SPEC.md)
+4. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+5. [TESTING.md](TESTING.md)
+6. [TASK_TEMPLATE.md](TASK_TEMPLATE.md)
 
 If this README ever conflicts with those documents, the documents above should win.
