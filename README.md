@@ -19,18 +19,7 @@ The documents that formed the harness are:
 | [`TESTING.md`](TESTING.md) | Validation strategy, smoke paths, and demo requirements |
 | [`TASK_TEMPLATE.md`](TASK_TEMPLATE.md) | Standard task brief format used to scope each phase of work |
 
-The implementation was broken into 10 phases, each delivered and validated before the next began:
-
-- **Phase 1** — Project skeleton and shared contracts
-- **Phase 2** — Dataset management (upload, validation, preview)
-- **Phase 3** — Evaluation run engine (stub adapter, Celery execution)
-- **Phase 4** — Trace persistence and case-level inspection
-- **Phase 5** — Run summary dashboard
-- **Phase 6** — Run comparison and review queue
-- **Phase 7** — Real OpenAI adapter and benchmark dataset
-- **Phase 8** — Reliability hardening (rerun, state guards, repair)
-- **Phase 9** — Scorer calibration and golden set
-- **Phase 10** — Dataset governance, snapshots, and experiment lineage
+The implementation was broken into phases — each with a defined scope, acceptance criteria, and a smoke test before the next began. Each phase covered one vertical slice of the system, from the initial skeleton through dataset management, evaluation execution, trace inspection, scoring, run comparison, real provider integration, reliability hardening, and experiment governance.
 
 This phased approach kept scope contained at each step and made it possible to validate the system end-to-end before adding complexity. It also demonstrated that AI agents can be directed reliably when given well-structured context rather than open-ended instructions.
 
@@ -154,13 +143,7 @@ At a system level, the workbench is expected to include:
 
 ## Current Status
 
-Phase 6 run comparison and review queue workflows are now implemented on top of the Phase 5
-summary dashboard and the Phase 4 trace-backed execution flow.
-
-The formal roadmap now has ten phases:
-
-- `Phase 1-6`: MVP and demo-ready path
-- `Phase 7-10`: post-MVP hardening, calibration, and governance
+The core evaluation loop is fully implemented and running with a real OpenAI adapter. The repository includes a working frontend, backend API, and smoke test path covering dataset management, run execution, trace inspection, summary dashboard, run comparison, and review queue.
 
 The repository includes:
 
@@ -169,100 +152,6 @@ The repository includes:
 - `shared/`: shared TypeScript contract mirrors aligned to backend schemas
 - `docs/tasks/` and `docs/reports/`: harness artifacts for scoped phase work
 - `scripts/smoke.sh`: minimum smoke entrypoint
-
-The implementation path remains intentionally structured around ten phases:
-
-1. Project skeleton and contracts
-2. Dataset management
-3. Evaluation run engine
-4. Trace and case detail
-5. Summary dashboard
-6. Run comparison and product polish
-7. Real OpenAI adapter and benchmark dataset
-8. Reliability and harness hardening
-9. Evaluation quality and scorer calibration
-10. Dataset governance and experiment management
-
-## Phase 1 Deliverables
-
-- required top-level repository skeleton
-- canonical backend contract definitions in `backend/app/schemas/contracts.py`
-- shared TypeScript contract mirror in `shared/types/contracts.ts`
-- minimum frontend homepage and frontend health route
-- minimum backend root route plus `/api/v1/meta/health` and `/api/v1/meta/contracts`
-- `.env.example`, `docker-compose.yml`, fixture placeholders, and acceptance artifacts
-
-## Phase 2 Deliverables
-
-Phase 2 adds the first real product workflow and keeps the later phases intentionally untouched.
-
-Delivered in this phase:
-
-- SQLAlchemy-backed `dataset` and `dataset_item` persistence
-- `POST /api/v1/datasets` with JSON and CSV import support
-- `GET /api/v1/datasets`, `GET /api/v1/datasets/{id}`, and `GET /api/v1/datasets/{id}/items`
-- server-side row validation with structured import errors
-- frontend dataset upload, list, and preview pages backed by real API data
-- Phase 2 tests and `./scripts/smoke.sh phase2`
-
-## Phase 3 Deliverables
-
-Phase 3 adds the first executable evaluation loop while keeping trace, summary, compare, and review flows deferred.
-
-Delivered in this phase:
-
-- SQLAlchemy-backed `eval_run`, `eval_task_run`, and `score` persistence
-- `POST /api/v1/runs`, `GET /api/v1/runs`, `GET /api/v1/runs/{id}`, and `GET /api/v1/runs/{id}/tasks`
-- deterministic stub adapter in `backend/app/adapters/stub.py`
-- Celery-backed execution path with eager local/test mode
-- fixture-backed `GET /api/v1/registry` for available `agent_version` and `scorer_config`
-- frontend run launcher and run detail pages backed by real API data
-- Phase 3 tests and `./scripts/smoke.sh phase3`
-
-## Phase 4 Deliverables
-
-Phase 4 adds real trace persistence and case-level inspection while keeping summary, compare, and review flows deferred.
-
-Delivered in this phase:
-
-- SQLAlchemy-backed `trace` persistence linked to `eval_task_run`
-- deterministic trace event and failure-reason persistence during run execution
-- `GET /api/v1/task-runs/{id}` and `GET /api/v1/task-runs/{id}/trace`
-- frontend task detail and trace viewer pages backed by real API data
-- Phase 4 tests and `./scripts/smoke.sh phase4`
-
-## Phase 5 Deliverables
-
-Phase 5 adds a real run-backed summary dashboard while keeping compare and review flows deferred.
-
-Delivered in this phase:
-
-- `GET /api/v1/runs/{id}/summary` backed by persisted task, score, and trace records
-- success rate, average latency, total cost, review-needed count, and category breakdown aggregation
-- failure breakdown plus failed-case navigation links into the existing trace viewer
-- homepage dashboard wired to the latest persisted run without fake data
-- Phase 5 tests and `./scripts/smoke.sh phase5`
-
-## Phase 6 Deliverables
-
-Phase 6 adds persisted run comparison and review workflows while polishing the main demo path.
-
-Delivered in this phase:
-
-- `GET /api/v1/runs/compare` backed by persisted run, task, score, and trace rows
-- improvement and regression case detection across two real runs over the same dataset
-- persisted `review` records plus `GET /api/v1/reviews/queue` and `PUT /api/v1/task-runs/{id}/review`
-- frontend compare page, homepage compare launcher, review queue page, and task-level review editor
-- Phase 6 tests and `./scripts/smoke.sh phase6`
-
-## Phase 7-10 Direction
-
-After the MVP path is complete, the roadmap continues with four hardening phases:
-
-- Phase 7 adds a real OpenAI-backed adapter, a benchmark dataset, and natural-language-friendly keyword overlap scoring while preserving the deterministic stub path for CI.
-- Phase 8 adds rerun, status transition guards, repair utilities, and replay fixtures so the harness can recover and be audited.
-- Phase 9 adds a golden set, calibration reporting, and scorer-quality visibility so teams can measure whether the scorer agrees with human labels.
-- Phase 10 adds dataset snapshots, diffing, baseline pinning, experiment metadata, and compare lineage so every comparison can be traced to exact inputs and configs.
 
 ## Local Setup
 
